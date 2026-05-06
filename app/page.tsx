@@ -87,6 +87,7 @@ export default function Home() {
 
   const currentActivity = activities[index];
   const total = activities.length;
+  const isFinished = Boolean(participantId && !currentActivity);
 
   const progress = useMemo(() => {
     if (!total) return 0;
@@ -310,6 +311,69 @@ export default function Home() {
     );
   }
 
+  if (isFinished) {
+    const confettiPieces = Array.from({ length: 44 }, (_, idx) => ({
+      left: `${(idx * 17) % 100}%`,
+      delay: `${(idx % 9) * 0.17}s`,
+      duration: `${2.2 + (idx % 5) * 0.35}s`,
+      color: ["#fbbf24", "#38bdf8", "#f472b6", "#34d399", "#f97316"][idx % 5],
+    }));
+
+    return (
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 text-slate-100">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.18),_transparent_55%)]" />
+        <section className="relative z-10 w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-8 text-center shadow-[0_24px_80px_rgba(2,6,23,0.6)] backdrop-blur">
+          <p className={`text-5xl text-amber-300 ${greatVibes.className}`}>Cheers!</p>
+          <p className="mt-3 text-xl font-semibold">Your birthday votes are in.</p>
+          <p className="mt-2 text-sm text-slate-300">
+            Thanks {name.trim() || "there"} - your picks are now part of Sumeet Mama&apos;s final
+            celebration plan.
+          </p>
+          <a
+            href="/admin"
+            className="mt-5 inline-block rounded-lg border border-amber-300/40 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-200"
+          >
+            Open admin dashboard
+          </a>
+        </section>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 overflow-hidden">
+          {confettiPieces.map((piece, idx) => (
+            <span
+              key={`${piece.left}-${idx}`}
+              className="absolute bottom-0 h-3 w-2 rounded-sm"
+              style={{
+                left: piece.left,
+                backgroundColor: piece.color,
+                animationName: "rise-confetti",
+                animationDuration: piece.duration,
+                animationDelay: piece.delay,
+                animationIterationCount: "infinite",
+                animationTimingFunction: "ease-out",
+              }}
+            />
+          ))}
+        </div>
+
+        <style jsx global>{`
+          @keyframes rise-confetti {
+            0% {
+              transform: translateY(0) rotate(0deg);
+              opacity: 0;
+            }
+            10% {
+              opacity: 1;
+            }
+            100% {
+              transform: translateY(-72vh) rotate(540deg);
+              opacity: 0;
+            }
+          }
+        `}</style>
+      </main>
+    );
+  }
+
   return (
     <main
       className="min-h-screen bg-slate-950 text-slate-100"
@@ -464,17 +528,7 @@ export default function Home() {
               Mobile mode: swipe on the card to vote.
             </p>
           </section>
-        ) : (
-          <section className="mt-6 w-full rounded-2xl border border-white/15 bg-slate-900/70 p-6 text-center shadow-lg">
-            <p className={`text-4xl text-amber-300 ${greatVibes.className}`}>Cheers! You are done.</p>
-            <p className="mt-2 text-sm text-slate-200">
-              Thanks {name.trim() || "there"} - your preferences are now in the planner.
-            </p>
-            <a href="/admin" className="mt-4 inline-block text-sm font-medium text-amber-300 underline">
-              Open admin dashboard
-            </a>
-          </section>
-        )}
+        ) : null}
 
         {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
 
