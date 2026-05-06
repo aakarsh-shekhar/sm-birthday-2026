@@ -620,7 +620,7 @@ export default function Home() {
 
   return (
     <main
-      className="min-h-screen bg-slate-950 text-slate-100"
+      className="fixed inset-0 flex h-[100dvh] flex-col overflow-hidden bg-slate-950 text-slate-100"
       style={{
         backgroundImage:
           "linear-gradient(rgba(15,23,42,0.78), rgba(15,23,42,0.9)), url('/party-bg.svg')",
@@ -628,42 +628,23 @@ export default function Home() {
         backgroundPosition: "center",
       }}
     >
-      <div className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-8 pt-6 sm:px-6">
-        <header className="rounded-3xl border border-amber-300/25 bg-slate-900/65 p-6 shadow-[0_18px_50px_rgba(15,23,42,0.45)] backdrop-blur">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">
-            Birthday Bash • Waterpark Edition
-          </p>
-          <h1 className={`mt-3 text-5xl leading-none text-amber-300 sm:text-6xl ${greatVibes.className}`}>
-            Happy Birthday Sumeet
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-slate-200 sm:text-base">
-            Party vibes, poolside fun, and a perfectly planned day. Enter your name and start
-            voting on activities - from chill lounge moments to full-on splash-and-cheers energy.
-          </p>
-          <div className="mt-5 grid gap-2 text-xs text-slate-100 sm:grid-cols-3 sm:text-sm">
-            <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-2">
-              1) Enter your name
-            </div>
-            <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-2">
-              2) Swipe all activities
-            </div>
-            <div className="rounded-xl border border-white/15 bg-white/10 px-3 py-2">
-              3) Birthday itinerary is locked
-            </div>
-          </div>
-        </header>
-
+      <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-4 py-4 sm:px-6">
         {currentActivity ? (
-          <section className="mt-6 w-full rounded-2xl border border-white/15 bg-slate-900/70 p-6 shadow-lg">
-            <p className="text-xs text-slate-300">
-              {index + 1} / {total} activities
-            </p>
-            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-700">
-              <div className="h-full bg-amber-300 transition-all" style={{ width: `${progress}%` }} />
+          <section className="flex min-h-0 flex-1 flex-col gap-3">
+            <div className="shrink-0">
+              <div className="flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                <span>{index + 1} / {total}</span>
+                <span className="truncate text-[10px] font-normal capitalize tracking-normal text-slate-500">
+                  {name.trim()}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-slate-800">
+                <div className="h-full bg-amber-300 transition-all" style={{ width: `${progress}%` }} />
+              </div>
             </div>
 
             <div
-              className="mt-6 touch-pan-y select-none overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-[0_10px_30px_rgba(2,6,23,0.45)] transition-transform"
+              className="relative flex min-h-0 flex-1 touch-pan-y select-none flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-900 shadow-[0_10px_30px_rgba(2,6,23,0.45)] transition-transform"
               onTouchStart={onCardTouchStart}
               onTouchMove={onCardTouchMove}
               onTouchEnd={onCardTouchEnd}
@@ -671,24 +652,27 @@ export default function Home() {
                 transform: `translate(${touchDelta.x * 0.18}px, ${touchDelta.y * 0.18}px)`,
               }}
             >
-              {activityImageUrl ? (
-                <div className="relative">
-                  <Image
-                    src={activityImageUrl}
-                    alt={currentActivity.title}
-                    width={900}
-                    height={500}
-                    unoptimized
-                    className="h-48 w-full object-cover sm:h-56"
-                  />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/15 to-transparent" />
-                </div>
-              ) : (
-                <div className="flex h-48 w-full items-center justify-center bg-slate-100 text-sm text-slate-500 sm:h-56">
-                  Activity image unavailable
-                </div>
-              )}
-              <div className="p-5">
+              <div className="relative shrink-0">
+                {activityImageUrl ? (
+                  <>
+                    <Image
+                      src={activityImageUrl}
+                      alt={currentActivity.title}
+                      width={900}
+                      height={500}
+                      unoptimized
+                      className="h-[min(38vh,14rem)] w-full object-cover sm:h-[min(36vh,15rem)]"
+                    />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/10 to-transparent" />
+                  </>
+                ) : (
+                  <div className="flex h-[min(38vh,14rem)] w-full items-center justify-center bg-slate-800 text-sm text-slate-500 sm:h-[min(36vh,15rem)]">
+                    Activity image unavailable
+                  </div>
+                )}
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-5">
                 <div className="flex flex-wrap items-center gap-2">
                   {currentActivity.category ? (
                     <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-100">
@@ -705,21 +689,23 @@ export default function Home() {
                     {currentActivity.includedInStay ? "Included in stay" : "Paid activity"}
                   </span>
                 </div>
-                <h2 className="mt-3 text-2xl font-semibold text-slate-100">{currentActivity.title}</h2>
+                <h2 className="mt-2 text-xl font-semibold leading-tight text-slate-100 sm:text-2xl">
+                  {currentActivity.title}
+                </h2>
                 {activityDescription.intro ? (
-                  <p className="mt-2 leading-relaxed text-slate-300">{activityDescription.intro}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-300">{activityDescription.intro}</p>
                 ) : null}
                 {activityDescription.facts.length > 0 ? (
-                  <ul className="mt-3 space-y-1.5 text-sm text-slate-300">
+                  <ul className="mt-2 space-y-1 text-sm text-slate-300">
                     {activityDescription.facts.map((fact) => (
                       <li key={fact} className="flex items-start gap-2">
-                        <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-amber-300" />
+                        <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
                         <span>{fact}</span>
                       </li>
                     ))}
                   </ul>
                 ) : null}
-                <div className="mt-4 rounded-lg border border-white/10 bg-white/5 p-3">
+                <div className="mt-3 rounded-lg border border-white/10 bg-white/5 p-3">
                   {currentActivity.activityUrl ? (
                     <a
                       href={currentActivity.activityUrl}
@@ -735,50 +721,50 @@ export default function Home() {
                   {currentActivity.activityUrl ? (
                     <p className="mt-1 break-all text-xs text-slate-400">{currentActivity.activityUrl}</p>
                   ) : null}
-                    {activityHost ? (
-                      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
-                        Source: {activityHost}
-                      </p>
-                    ) : null}
+                  {activityHost ? (
+                    <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Source: {activityHost}
+                    </p>
+                  ) : null}
                 </div>
-                <p className="mt-4 text-xs text-slate-400">{swipeHint}</p>
+                <p className="mt-3 text-[11px] text-slate-500">{swipeHint}</p>
               </div>
             </div>
 
-            <div className="mt-8 hidden grid-cols-3 gap-3 md:grid">
+            <div className="hidden shrink-0 grid-cols-3 gap-2 pb-[max(env(safe-area-inset-bottom),0.75rem)] md:grid sm:gap-3">
               <button
+                type="button"
                 onClick={() => submitReaction("PASS")}
                 disabled={isLoading}
-                className="rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-50"
+                className="rounded-xl border border-slate-500 bg-slate-800 py-3 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-50 sm:text-sm"
               >
                 Pass
               </button>
               <button
+                type="button"
                 onClick={() => submitReaction("LIKE")}
                 disabled={isLoading}
-                className="rounded-lg border border-emerald-700 bg-emerald-900/50 px-3 py-2 text-sm font-medium text-emerald-200 hover:bg-emerald-900/70 disabled:opacity-50"
+                className="rounded-xl border border-emerald-700 bg-emerald-900/50 py-3 text-xs font-semibold text-emerald-200 hover:bg-emerald-900/70 disabled:opacity-50 sm:text-sm"
               >
                 Like
               </button>
               <button
+                type="button"
                 onClick={() => submitReaction("SUPERLIKE")}
                 disabled={isLoading}
-                className="rounded-lg border border-amber-700 bg-amber-900/50 px-3 py-2 text-sm font-medium text-amber-200 hover:bg-amber-900/70 disabled:opacity-50"
+                className="rounded-xl border border-amber-700 bg-amber-900/50 py-3 text-xs font-semibold text-amber-200 hover:bg-amber-900/70 disabled:opacity-50 sm:text-sm"
               >
                 Superlike
               </button>
             </div>
-            <p className="mt-4 text-center text-xs text-slate-400 md:hidden">
-              Mobile mode: swipe on the card to vote.
-            </p>
           </section>
         ) : null}
 
-        {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
-
-        <footer className="mt-8 border-t border-white/15 pt-4 text-center text-xs text-slate-400">
-          Happy Birthday Sumeet • Pool, Party & Perfect Picks
-        </footer>
+        {error ? (
+          <p className="shrink-0 py-2 text-center text-sm text-red-300" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
     </main>
   );
