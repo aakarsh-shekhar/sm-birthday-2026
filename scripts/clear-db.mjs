@@ -13,9 +13,13 @@ const prisma = new PrismaClient();
 
 async function main() {
   await prisma.swipe.deleteMany();
+  await prisma.foodSelection.deleteMany();
+  await prisma.groceryItem.deleteMany();
+  await prisma.groceryNote.deleteMany();
   await prisma.participant.deleteMany();
-  await prisma.activity.deleteMany();
-  console.log("Database cleared: Swipe, Participant, Activity tables.");
+  console.log(
+    "Database cleared: Swipe, FoodSelection, GroceryItem, GroceryNote and Participant tables (activities kept).",
+  );
 }
 
 main()

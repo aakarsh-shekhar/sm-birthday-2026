@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Great_Vibes } from "next/font/google";
-import { FormEvent, TouchEvent, useMemo, useState } from "react";
+import { FormEvent, TouchEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 type Activity = {
   id: string;
@@ -12,6 +12,17 @@ type Activity = {
   imageUrl: string | null;
   activityUrl: string | null;
   includedInStay: boolean | null;
+};
+
+type FoodOption = {
+  id: string;
+  title: string;
+};
+
+type GroceryItem = {
+  id: string;
+  item: string;
+  participant: { id: string; name: string };
 };
 
 type Reaction = "PASS" | "LIKE" | "SUPERLIKE";
@@ -84,10 +95,23 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [touchDelta, setTouchDelta] = useState({ x: 0, y: 0 });
+  const [foodOptions, setFoodOptions] = useState<FoodOption[]>([]);
+  const [selectedFoodOptionIds, setSelectedFoodOptionIds] = useState<string[]>([]);
+  const [foodStepDone, setFoodStepDone] = useState(false);
+  const [groceryStepDone, setGroceryStepDone] = useState(false);
+  const [foodLoading, setFoodLoading] = useState(false);
+  const [groceryItems, setGroceryItems] = useState<GroceryItem[]>([]);
+  const [groceryItemInput, setGroceryItemInput] = useState("");
+  const [groceryLoading, setGroceryLoading] = useState(false);
+  const [foodLoadedOnce, setFoodLoadedOnce] = useState(false);
+  const [groceryLoadedOnce, setGroceryLoadedOnce] = useState(false);
 
   const currentActivity = activities[index];
   const total = activities.length;
-  const isFinished = Boolean(participantId && !currentActivity);
+  const isSwipingFinished = Boolean(participantId && !currentActivity);
+  const isChoosingFood = isSwipingFinished && !foodStepDone;
+  const isWritingGrocery = isSwipingFinished && foodStepDone && !groceryStepDone;
+  const isFinished = isSwipingFinished && foodStepDone && groceryStepDone;
 
   const progress = useMemo(() => {
     if (!total) return 0;
@@ -126,6 +150,13 @@ export default function Home() {
       setParticipantId(data.participantId);
       setActivities(data.activities as Activity[]);
       setIndex(0);
+      setFoodStepDone(false);
+      setGroceryStepDone(false);
+      setSelectedFoodOptionIds([]);
+      setGroceryItems([]);
+      setGroceryItemInput("");
+      setFoodLoadedOnce(false);
+      setGroceryLoadedOnce(false);
     } catch (sessionError) {
       setError(
         sessionError instanceof Error ? sessionError.message : "Something went wrong.",
@@ -208,6 +239,125 @@ export default function Home() {
     }
   }
 
+  const loadFoodOptions = useCallback(async () => {
+    if (!participantId) return;
+    setFoodLoading(true);
+    try {
+      const response = await fetch(`/api/food-options?participantId=${encodeURIComponent(participantId)}`);
+      const data = (await response.json()) as {
+        options?: FoodOption[];
+        selectedOptionIds?: string[];
+        error?: string;
+      };
+      if (response.ok) {
+        setFoodOptions(data.options ?? []);
+        setSelectedFoodOptionIds(data.selectedOptionIds ?? []);
+      } else {
+        setError(data.error ?? "Could not load food options.");
+      }
+    } finally {
+      setFoodLoading(false);
+      setFoodLoadedOnce(true);
+    }
+  }, [participantId]);
+
+  async function submitFoodSelections() {
+    if (!participantId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/food-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantId,
+          optionIds: selectedFoodOptionIds,
+        }),
+      });
+      const data = await parseJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(typeof data?.error === "string" ? data.error : "Could not save food choices.");
+      }
+      setFoodStepDone(true);
+    } catch (foodError) {
+      setError(foodError instanceof Error ? foodError.message : "Could not save food choices.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const loadGroceryItems = useCallback(async () => {
+    if (!participantId) return;
+    setGroceryLoading(true);
+    try {
+      const response = await fetch(
+        `/api/grocery-items?participantId=${encodeURIComponent(participantId)}`,
+      );
+      const data = (await response.json()) as { items?: GroceryItem[] };
+      if (response.ok) {
+        setGroceryItems(data.items ?? []);
+      } else {
+        setError("Could not load grocery list.");
+      }
+    } finally {
+      setGroceryLoading(false);
+      setGroceryLoadedOnce(true);
+    }
+  }, [participantId]);
+
+  async function addGroceryItem() {
+    if (!participantId) return;
+    const item = groceryItemInput.trim();
+    if (!item) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/grocery-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantId,
+          item,
+        }),
+      });
+      const data = await parseJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(typeof data?.error === "string" ? data.error : "Could not add grocery item.");
+      }
+      setGroceryItemInput("");
+      await loadGroceryItems();
+    } catch (groceryError) {
+      setError(groceryError instanceof Error ? groceryError.message : "Could not add grocery item.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function finishGroceryStep() {
+    setGroceryStepDone(true);
+  }
+
+  useEffect(() => {
+    if (isChoosingFood && foodOptions.length === 0 && !foodLoading && !foodLoadedOnce) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void loadFoodOptions();
+    }
+  }, [isChoosingFood, foodOptions.length, foodLoading, foodLoadedOnce, loadFoodOptions]);
+
+  useEffect(() => {
+    if (isWritingGrocery && groceryItems.length === 0 && !groceryLoading && !groceryLoadedOnce) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void loadGroceryItems();
+    }
+  }, [
+    isWritingGrocery,
+    groceryItems.length,
+    groceryLoading,
+    groceryLoadedOnce,
+    loadGroceryItems,
+  ]);
+
   const swipeHint =
     touchDelta.x > 20
       ? "Release to Like"
@@ -234,7 +384,7 @@ export default function Home() {
       >
         <section className="mx-auto flex min-h-screen w-full max-w-4xl snap-start flex-col justify-center px-6 py-16">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">
-            A Family Celebration Story
+            A Legacy of Celebration
           </p>
           <h1 className={`mt-4 text-6xl leading-none text-amber-300 sm:text-7xl ${greatVibes.className}`}>
             Happy Birthday Sumeet
@@ -370,6 +520,100 @@ export default function Home() {
             }
           }
         `}</style>
+      </main>
+    );
+  }
+
+  if (isChoosingFood) {
+    return (
+      <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
+        <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
+          <p className={`text-4xl text-amber-300 ${greatVibes.className}`}>Food Picks</p>
+          <p className="mt-2 text-sm text-slate-300">
+            Pick anything you would like during the celebration.
+          </p>
+          {foodLoading ? <p className="mt-4 text-sm text-slate-400">Loading options...</p> : null}
+          <div className="mt-4 max-h-[45vh] space-y-2 overflow-y-auto pr-1">
+            {foodOptions.map((option) => (
+              <label
+                key={option.id}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedFoodOptionIds.includes(option.id)}
+                  onChange={(event) => {
+                    setSelectedFoodOptionIds((prev) =>
+                      event.target.checked
+                        ? [...prev, option.id]
+                        : prev.filter((id) => id !== option.id),
+                    );
+                  }}
+                />
+                <span>{option.title}</span>
+              </label>
+            ))}
+          </div>
+          <button
+            onClick={submitFoodSelections}
+            disabled={isLoading}
+            className="mt-5 w-full rounded-lg bg-amber-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+          >
+            {isLoading ? "Saving..." : "Continue to grocery note"}
+          </button>
+          {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
+        </section>
+      </main>
+    );
+  }
+
+  if (isWritingGrocery) {
+    return (
+      <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
+        <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
+          <p className={`text-4xl text-amber-300 ${greatVibes.className}`}>Grocery List</p>
+          <p className="mt-2 text-sm text-slate-300">
+            See the shared list and add your own items one-by-one.
+          </p>
+          <div className="mt-4 max-h-[36vh] overflow-y-auto rounded-lg border border-white/15 bg-slate-950/50 p-3">
+            {groceryLoading ? (
+              <p className="text-sm text-slate-400">Loading list...</p>
+            ) : groceryItems.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {groceryItems.map((entry) => (
+                  <li key={entry.id} className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5">
+                    <span className="font-medium text-slate-100">{entry.item}</span>
+                    <span className="ml-2 text-xs text-slate-400">- {entry.participant.name}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-400">No items yet. Add the first one.</p>
+            )}
+          </div>
+          <div className="mt-4 flex gap-2">
+            <input
+              value={groceryItemInput}
+              onChange={(event) => setGroceryItemInput(event.target.value)}
+              placeholder="Add item (e.g. Ice bags)"
+              className="flex-1 rounded-lg border border-white/20 bg-slate-950/60 px-3 py-2 text-slate-100 outline-none placeholder:text-slate-400 focus:border-amber-300"
+            />
+            <button
+              onClick={addGroceryItem}
+              disabled={isLoading}
+              className="rounded-lg bg-sky-500 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+            >
+              {isLoading ? "Adding..." : "Add"}
+            </button>
+          </div>
+          <button
+            onClick={finishGroceryStep}
+            className="mt-5 w-full rounded-lg bg-amber-400 px-4 py-2 font-semibold text-slate-950"
+          >
+            Finish
+          </button>
+          {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
+        </section>
       </main>
     );
   }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { seedActivities } from "@/lib/activities";
+import { seedFoodOptions } from "@/lib/food-options";
 
 async function ensureActivities() {
   const count = await prisma.activity.count();
@@ -19,6 +20,18 @@ async function ensureActivities() {
   });
 }
 
+async function ensureFoodOptions() {
+  const count = await prisma.foodOption.count();
+  if (count > 0) return;
+
+  await prisma.foodOption.createMany({
+    data: seedFoodOptions.map((title, index) => ({
+      title,
+      sortOrder: index,
+    })),
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -29,6 +42,7 @@ export async function POST(request: Request) {
     }
 
     await ensureActivities();
+    await ensureFoodOptions();
 
     const participant = await prisma.participant.create({
       data: { name },

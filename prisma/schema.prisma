@@ -13,10 +13,13 @@ datasource db {
 }
 
 model Participant {
-  id        String    @id @default(cuid())
-  name      String
-  createdAt DateTime  @default(now())
-  swipes    Swipe[]
+  id             String          @id @default(cuid())
+  name           String
+  createdAt      DateTime        @default(now())
+  swipes         Swipe[]
+  foodSelections FoodSelection[]
+  groceryNote    GroceryNote?
+  groceryItems   GroceryItem[]
 }
 
 model Activity {
@@ -43,6 +46,43 @@ model Swipe {
   activity      Activity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
   @@unique([participantId, activityId])
+}
+
+model FoodOption {
+  id          String          @id @default(cuid())
+  title       String
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  selections  FoodSelection[]
+}
+
+model FoodSelection {
+  id            String      @id @default(cuid())
+  participantId String
+  foodOptionId  String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  foodOption    FoodOption  @relation(fields: [foodOptionId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, foodOptionId])
+}
+
+model GroceryNote {
+  id            String      @id @default(cuid())
+  participantId String      @unique
+  note          String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+}
+
+model GroceryItem {
+  id            String      @id @default(cuid())
+  participantId String
+  item          String
+  createdAt     DateTime    @default(now())
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 }
 
 enum Reaction {
