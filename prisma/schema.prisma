@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Participant {
+  id        String    @id @default(cuid())
+  name      String
+  createdAt DateTime  @default(now())
+  swipes    Swipe[]
+}
+
+model Activity {
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  category       String?
+  imageUrl       String?
+  activityUrl    String?
+  includedInStay Boolean?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  swipes         Swipe[]
+}
+
+model Swipe {
+  id            String    @id @default(cuid())
+  participantId String
+  activityId    String
+  reaction      Reaction
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  activity      Activity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, activityId])
+}
+
+enum Reaction {
+  PASS
+  LIKE
+  SUPERLIKE
+}
