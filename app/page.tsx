@@ -14,6 +14,7 @@ import {
 } from "react";
 
 import { EasterEggToast, type EasterEggToastPayload } from "@/app/components/EasterEggToast";
+import { JumpscareOverlay, type JumpscareVariant } from "@/app/components/JumpscareOverlay";
 import {
   flushPendingEasterEggs,
   getPendingEasterEggs,
@@ -57,6 +58,9 @@ const greatVibes = Great_Vibes({
 
 /** Time guest must keep the quote bar in view (cumulative) on pre-name landing. */
 const QUOTE_DWELL_MS = 10_000;
+
+/** Full-screen interstitials advance on tap or after this delay (normal flow, not hidden triggers). */
+const FLOW_JUMPSCARE_AUTO_MS = 1800;
 
 /** One quote per full-screen landing section; bottom bar, centered, max 4 lines each. */
 const LANDING_SCROLL_QUOTES = [
@@ -141,6 +145,9 @@ export default function Home() {
   const [foodLoadedOnce, setFoodLoadedOnce] = useState(false);
   const [groceryLoadedOnce, setGroceryLoadedOnce] = useState(false);
   const [enteredViaGroceryOnly, setEnteredViaGroceryOnly] = useState(false);
+  const [jumpscare, setJumpscare] = useState<JumpscareVariant | null>(null);
+  const flowLaneGroceryShortcutDoneRef = useRef(false);
+  const flowRachnaDoneRef = useRef(false);
   const [landingQuoteIndex, setLandingQuoteIndex] = useState(0);
   const [landingQuoteVisible, setLandingQuoteVisible] = useState(false);
   const [landingQuoteDisplayIndex, setLandingQuoteDisplayIndex] = useState(0);
@@ -174,6 +181,16 @@ export default function Home() {
   const [eggToast, setEggToast] = useState<EasterEggToastPayload>(null);
 
   const dismissEggToast = useCallback(() => setEggToast(null), []);
+
+  const dismissJumpscare = useCallback(() => {
+    setJumpscare((current) => {
+      if (current === "lane" && enteredViaGroceryOnly && !flowRachnaDoneRef.current) {
+        flowRachnaDoneRef.current = true;
+        return "rachna";
+      }
+      return null;
+    });
+  }, [enteredViaGroceryOnly]);
 
   const recordEggFind = useCallback(
     async (key: EasterEggKey) => {
@@ -234,6 +251,18 @@ export default function Home() {
     if (!total) return 0;
     return Math.round((index / total) * 100);
   }, [index, total]);
+
+  useEffect(() => {
+    if (!isWritingGrocery || !enteredViaGroceryOnly || flowLaneGroceryShortcutDoneRef.current) return;
+    flowLaneGroceryShortcutDoneRef.current = true;
+    setJumpscare("lane");
+  }, [isWritingGrocery, enteredViaGroceryOnly]);
+
+  useEffect(() => {
+    if (!isWritingGrocery || enteredViaGroceryOnly || flowRachnaDoneRef.current) return;
+    flowRachnaDoneRef.current = true;
+    setJumpscare("rachna");
+  }, [isWritingGrocery, enteredViaGroceryOnly]);
 
   useEffect(() => {
     if (participantId) {
@@ -316,6 +345,9 @@ export default function Home() {
       setGroceryItemInput("");
       setFoodLoadedOnce(false);
       setGroceryLoadedOnce(false);
+      setJumpscare(null);
+      flowLaneGroceryShortcutDoneRef.current = false;
+      flowRachnaDoneRef.current = false;
 
       const finalUnique = await flushPendingEasterEggs(data.participantId);
       if (pendingBeforeFlush.length > 0 && finalUnique != null) {
@@ -908,6 +940,11 @@ export default function Home() {
   if (isWritingGrocery) {
     return (
       <>
+        <JumpscareOverlay
+          variant={jumpscare}
+          onDismiss={dismissJumpscare}
+          autoDismissMs={FLOW_JUMPSCARE_AUTO_MS}
+        />
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
         <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
         <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
