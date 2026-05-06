@@ -12,7 +12,7 @@ async function ensureActivities() {
       title: activity.title,
       description: activity.description,
       category: activity.category,
-      imageUrl: null,
+      imageUrl: activity.imageUrl ?? null,
       activityUrl: activity.activityUrl,
       includedInStay: activity.includedInStay,
       sortOrder: index,
@@ -25,8 +25,10 @@ async function ensureFoodOptions() {
   if (count > 0) return;
 
   await prisma.foodOption.createMany({
-    data: seedFoodOptions.map((title, index) => ({
-      title,
+    data: seedFoodOptions.map((option, index) => ({
+      title: option.title,
+      description: option.description ?? null,
+      infoUrl: option.infoUrl ?? null,
       sortOrder: index,
     })),
   });

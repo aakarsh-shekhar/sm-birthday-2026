@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const [options, selections] = await Promise.all([
     prisma.foodOption.findMany({
       orderBy: { sortOrder: "asc" },
-      select: { id: true, title: true },
+      select: { id: true, title: true, description: true, infoUrl: true },
     }),
     prisma.foodSelection.findMany({
       where: { participantId },

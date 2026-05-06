@@ -1,9 +1,11 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { compressImageForAdminUpload } from "@/lib/client-compress-upload-image";
+import { EasterEggToast, type EasterEggToastPayload } from "@/app/components/EasterEggToast";
+import { getSessionParticipantId, reportEasterEggToServer } from "@/lib/easter-egg-client";
+import { EASTER_EGG_KEYS, easterEggLabel, easterEggToastLine, isEasterEggKey } from "@/lib/easter-eggs";
 
 type DashboardSwipe = {
   id: string;
@@ -35,11 +37,14 @@ type DashboardParticipant = {
     foodOption: { id: string; title: string };
   }>;
   groceryNote: { id: string; note: string } | null;
+  easterEggFinds: Array<{ eggKey: string }>;
 };
 
 type DashboardFoodOption = {
   id: string;
   title: string;
+  description: string | null;
+  infoUrl: string | null;
   selections: Array<{
     id: string;
     participant: { id: string; name: string };
@@ -63,20 +68,18 @@ type ActivityForm = {
 
 type FoodOptionForm = {
   title: string;
+  description: string;
+  infoUrl: string;
 };
 
 const defaultImage = "/activity-images/default-activity.svg";
-
-function isUploadedImage(url: string | null) {
-  return !!url && /^\/activity-images\/upload-/i.test(url);
-}
 
 function toForm(activity: DashboardActivity): ActivityForm {
   return {
     title: activity.title,
     description: activity.description ?? "",
     category: activity.category ?? "",
-    imageUrl: isUploadedImage(activity.imageUrl) ? activity.imageUrl ?? "" : "",
+    imageUrl: activity.imageUrl ?? "",
     activityUrl: activity.activityUrl ?? "",
     includedInStay: activity.includedInStay ?? false,
   };
@@ -99,22 +102,42 @@ export default function AdminPage() {
     includedInStay: false,
   });
   const [loading, setLoading] = useState(true);
-  const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [foodModalOpen, setFoodModalOpen] = useState(false);
   const [foodModalMode, setFoodModalMode] = useState<"add" | "edit">("add");
   const [editingFoodOptionId, setEditingFoodOptionId] = useState<string | null>(null);
-  const [foodForm, setFoodForm] = useState<FoodOptionForm>({ title: "" });
+  const [foodForm, setFoodForm] = useState<FoodOptionForm>({
+    title: "",
+    description: "",
+    infoUrl: "",
+  });
+  const [eggToast, setEggToast] = useState<EasterEggToastPayload>(null);
 
   async function loadDashboard() {
     setLoading(true);
+    setMessage(null);
     try {
       const response = await fetch("/api/admin/dashboard");
-      const data = await response.json();
-      setActivities(data.activities ?? []);
-      setParticipants(data.participants ?? []);
-      setFoodOptions(data.foodOptions ?? []);
-      setGroceryItems(data.groceryItems ?? []);
+      const raw = await response.text();
+      let data: Record<string, unknown> = {};
+      if (raw.trim()) {
+        try {
+          data = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+          setMessage("Dashboard response was not valid JSON.");
+          return;
+        }
+      }
+      if (!response.ok) {
+        const err =
+          typeof data.error === "string" ? data.error : `Could not load dashboard (${response.status}).`;
+        setMessage(err);
+        return;
+      }
+      setActivities((data.activities as DashboardActivity[]) ?? []);
+      setParticipants((data.participants as DashboardParticipant[]) ?? []);
+      setFoodOptions((data.foodOptions as DashboardFoodOption[]) ?? []);
+      setGroceryItems((data.groceryItems as DashboardGroceryItem[]) ?? []);
     } finally {
       setLoading(false);
     }
@@ -123,6 +146,19 @@ export default function AdminPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadDashboard();
+  }, []);
+
+  const dismissEggToast = useCallback(() => setEggToast(null), []);
+
+  useEffect(() => {
+    const pid = getSessionParticipantId();
+    if (!pid) return;
+    void (async () => {
+      const n = await reportEasterEggToServer(pid, "admin_detour");
+      if (n != null) {
+        setEggToast({ count: n, line: easterEggToastLine("admin_detour") });
+      }
+    })();
   }, []);
 
   function reactionNames(activity: DashboardActivity, reaction: DashboardSwipe["reaction"]) {
@@ -209,55 +245,31 @@ export default function AdminPage() {
     setModalOpen(true);
   }
 
-  async function uploadImage(file: File) {
-    setUploadingImage(true);
-    setMessage(null);
-    try {
-      const prepared = await compressImageForAdminUpload(file);
-      const body = new FormData();
-      body.append("file", prepared);
-      const response = await fetch("/api/admin/upload-image", {
-        method: "POST",
-        body,
-      });
-      const data = (await response.json().catch(() => ({}))) as {
-        imageUrl?: string;
-        error?: string;
-      };
-      if (response.status === 413) {
-        throw new Error(
-          data.error ??
-            "Image is still too large for the server (max ~4MB on hosting). Try a smaller file or another format.",
-        );
-      }
-      if (!response.ok || !data.imageUrl) {
-        throw new Error(data.error ?? "Could not upload image.");
-      }
-      setForm((prev) => ({ ...prev, imageUrl: data.imageUrl! }));
-      setMessage("Image uploaded.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not upload image.");
-    } finally {
-      setUploadingImage(false);
-    }
-  }
-
   function openAddFoodOptionModal() {
     setFoodModalMode("add");
     setEditingFoodOptionId(null);
-    setFoodForm({ title: "" });
+    setFoodForm({ title: "", description: "", infoUrl: "" });
     setFoodModalOpen(true);
   }
 
   function openEditFoodOptionModal(option: DashboardFoodOption) {
     setFoodModalMode("edit");
     setEditingFoodOptionId(option.id);
-    setFoodForm({ title: option.title });
+    setFoodForm({
+      title: option.title,
+      description: option.description ?? "",
+      infoUrl: option.infoUrl ?? "",
+    });
     setFoodModalOpen(true);
   }
 
   async function saveFoodOption() {
     if (!foodForm.title.trim()) return;
+    const payload = {
+      title: foodForm.title.trim(),
+      description: foodForm.description.trim() || null,
+      infoUrl: foodForm.infoUrl.trim() || null,
+    };
     setMessage(null);
     const isEdit = foodModalMode === "edit" && editingFoodOptionId;
     const response = await fetch(
@@ -265,7 +277,7 @@ export default function AdminPage() {
       {
         method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(foodForm),
+        body: JSON.stringify(payload),
       },
     );
     if (!response.ok) {
@@ -290,12 +302,150 @@ export default function AdminPage() {
     setMessage("Food option deleted.");
   }
 
+  const eggLeaderboard = useMemo(() => {
+    return [...participants]
+      .map((participant) => {
+        const unique = new Set(
+          participant.easterEggFinds.map((row) => row.eggKey).filter((k): k is string => Boolean(k)),
+        );
+        return { id: participant.id, name: participant.name, count: unique.size };
+      })
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.name.localeCompare(b.name);
+      })
+      .map((row, index) => ({ ...row, rank: index + 1 }));
+  }, [participants]);
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
+      <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
       <div className="mx-auto w-full max-w-6xl p-6">
       <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
-      <p className="mt-2 text-sm text-slate-700">Total participants: {participants.length}</p>
+
+      <section className="mt-6" aria-labelledby="egg-leaderboard-heading">
+        <div className="overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 via-white to-amber-50/50 shadow-md">
+          <div className="border-b border-amber-200/60 bg-amber-100/50 px-5 py-3">
+            <h2 id="egg-leaderboard-heading" className="text-lg font-bold text-slate-900">
+              Easter egg leaderboard
+            </h2>
+            <p className="mt-0.5 text-sm text-slate-600">
+              Ranked by unique eggs found (out of {EASTER_EGG_KEYS.length}).
+            </p>
+          </div>
+          <div className="overflow-x-auto px-0">
+            <table className="w-full min-w-[min(100%,480px)] text-left text-sm">
+              <thead className="border-b border-slate-200 bg-white/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-5 py-2.5" scope="col">
+                    Rank
+                  </th>
+                  <th className="px-5 py-2.5" scope="col">
+                    Participant
+                  </th>
+                  <th className="px-5 py-2.5 text-right tabular-nums" scope="col">
+                    Eggs
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {loading ? (
+                  <tr>
+                    <td className="px-5 py-4 text-slate-500" colSpan={3}>
+                      Loading leaderboard…
+                    </td>
+                  </tr>
+                ) : eggLeaderboard.length === 0 ? (
+                  <tr>
+                    <td className="px-5 py-4 text-slate-500" colSpan={3}>
+                      No participants yet.
+                    </td>
+                  </tr>
+                ) : (
+                  eggLeaderboard.map((row) => {
+                    const pct = EASTER_EGG_KEYS.length
+                      ? Math.round((row.count / EASTER_EGG_KEYS.length) * 100)
+                      : 0;
+                    const topThree = row.rank <= 3 && row.count > 0;
+                    return (
+                      <tr
+                        key={row.id}
+                        className={
+                          topThree ? "bg-amber-50/40" : row.count > 0 ? "" : "text-slate-400"
+                        }
+                      >
+                        <td className="px-5 py-3 font-medium tabular-nums text-slate-700">
+                          {row.rank <= 3 && row.count > 0 ? (
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-amber-200/90 text-sm font-bold text-amber-950">
+                              {row.rank}
+                            </span>
+                          ) : (
+                            <span className="pl-1">{row.rank}</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 font-medium text-slate-900">{row.name}</td>
+                        <td className="px-5 py-3 text-right">
+                          <span className="tabular-nums font-semibold text-slate-900">
+                            {row.count}/{EASTER_EGG_KEYS.length}
+                          </span>
+                          <span className="ml-2 text-xs text-slate-500">({pct}%)</span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <p className="mt-6 text-sm text-slate-700">Total participants: {participants.length}</p>
       {message ? <p className="mt-3 text-sm font-medium text-sky-800">{message}</p> : null}
+
+      <section className="mt-8">
+        <h2 className="text-xl font-semibold text-slate-900">Easter eggs</h2>
+        <p className="mt-1 max-w-3xl text-sm text-slate-600">
+          Guests can discover hidden interactions across the site (including this page). Each row shows
+          how many that participant unlocked ({EASTER_EGG_KEYS.length} total) and which ones.
+        </p>
+        <div className="mt-3 overflow-x-auto rounded-xl border border-slate-300 bg-white shadow-sm">
+          <table className="w-full min-w-[720px] text-left text-sm text-slate-800">
+            <thead className="bg-slate-100">
+              <tr>
+                <th className="px-4 py-3 text-slate-900">Participant</th>
+                <th className="px-4 py-3 text-slate-900">Found</th>
+                <th className="px-4 py-3 text-slate-900">Eggs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {participants.map((participant) => {
+                const keys = [
+                  ...new Set(
+                    participant.easterEggFinds
+                      .map((row) => row.eggKey)
+                      .filter((k): k is string => typeof k === "string"),
+                  ),
+                ].sort((a, b) => a.localeCompare(b));
+                const labels = keys.map((key) =>
+                  isEasterEggKey(key) ? easterEggLabel(key) : key,
+                );
+                return (
+                  <tr key={participant.id} className="border-t border-slate-200 align-top">
+                    <td className="px-4 py-3 font-medium text-slate-900">{participant.name}</td>
+                    <td className="px-4 py-3 tabular-nums text-slate-800">
+                      {keys.length}/{EASTER_EGG_KEYS.length}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {labels.length ? labels.join(" · ") : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="mt-8">
         <h2 className="text-xl font-semibold text-slate-900">Who Picked What</h2>
@@ -346,10 +496,11 @@ export default function AdminPage() {
           </button>
         </div>
         <div className="mt-3 overflow-x-auto rounded-xl border border-slate-300 bg-white shadow-sm">
-          <table className="w-full min-w-[700px] text-left text-sm text-slate-800">
+          <table className="w-full min-w-[900px] text-left text-sm text-slate-800">
             <thead className="bg-slate-100">
               <tr>
                 <th className="px-4 py-3 text-slate-900">Food Option</th>
+                <th className="px-4 py-3 text-slate-900">Details</th>
                 <th className="px-4 py-3 text-slate-900">Selected By</th>
               </tr>
             </thead>
@@ -359,8 +510,25 @@ export default function AdminPage() {
                   .map((selection) => selection.participant.name)
                   .sort((a, b) => a.localeCompare(b));
                 return (
-                  <tr key={option.id} className="border-t border-slate-200">
+                  <tr key={option.id} className="border-t border-slate-200 align-top">
                     <td className="px-4 py-3 font-medium text-slate-900">{option.title}</td>
+                    <td className="max-w-md px-4 py-3 text-xs text-slate-600">
+                      {option.description ? (
+                        <p className="line-clamp-2">{option.description}</p>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                      {option.infoUrl ? (
+                        <a
+                          href={option.infoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block text-sky-800 underline"
+                        >
+                          Link
+                        </a>
+                      ) : null}
+                    </td>
                     <td className="px-4 py-3 text-slate-700">
                       <div className="flex items-center justify-between gap-3">
                         <span>{names.length ? names.join(", ") : "-"}</span>
@@ -446,7 +614,12 @@ export default function AdminPage() {
                 <tr key={activity.id} className="border-t border-slate-200">
                   <td className="px-4 py-3">
                     <img
-                      src={isUploadedImage(activity.imageUrl) ? activity.imageUrl! : defaultImage}
+                      src={
+                        activity.imageUrl?.trim() &&
+                        (/^https?:\/\//i.test(activity.imageUrl) || activity.imageUrl.startsWith("/"))
+                          ? activity.imageUrl
+                          : defaultImage
+                      }
                       alt={activity.title}
                       className="h-14 w-24 rounded-md object-cover"
                     />
@@ -524,30 +697,12 @@ export default function AdminPage() {
                 placeholder="Category"
                 className="rounded-lg border border-slate-400 px-3 py-2 text-slate-900 placeholder:text-slate-500"
               />
-              <div className="grid gap-2 md:col-span-2">
-                <input
-                  value={form.imageUrl}
-                  onChange={(event) => setForm({ ...form, imageUrl: event.target.value })}
-                  placeholder="Image URL or local path"
-                  className="rounded-lg border border-slate-400 px-3 py-2 text-slate-900 placeholder:text-slate-500"
-                />
-                <label className="inline-flex w-fit cursor-pointer items-center rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-900">
-                  {uploadingImage ? "Uploading..." : "Upload image"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={uploadingImage}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) {
-                        void uploadImage(file);
-                      }
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
-              </div>
+              <input
+                value={form.imageUrl}
+                onChange={(event) => setForm({ ...form, imageUrl: event.target.value })}
+                placeholder="Image URL (https://...) or path under /activity-images/..."
+                className="rounded-lg border border-slate-400 px-3 py-2 text-slate-900 placeholder:text-slate-500 md:col-span-2"
+              />
               <input
                 value={form.activityUrl}
                 onChange={(event) => setForm({ ...form, activityUrl: event.target.value })}
@@ -589,7 +744,7 @@ export default function AdminPage() {
 
       {foodModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
-          <div className="w-full max-w-md rounded-xl border border-slate-300 bg-white p-5 shadow-xl">
+          <div className="w-full max-w-lg rounded-xl border border-slate-300 bg-white p-5 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">
                 {foodModalMode === "add" ? "Add Food Option" : "Edit Food Option"}
@@ -601,11 +756,36 @@ export default function AdminPage() {
                 Close
               </button>
             </div>
+            <label className="block text-xs font-medium text-slate-600" htmlFor="food-title">
+              Title
+            </label>
             <input
+              id="food-title"
               value={foodForm.title}
-              onChange={(event) => setFoodForm({ title: event.target.value })}
+              onChange={(event) => setFoodForm({ ...foodForm, title: event.target.value })}
               placeholder="Food option title"
-              className="w-full rounded-lg border border-slate-400 px-3 py-2 text-slate-900 placeholder:text-slate-500"
+              className="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2 text-slate-900 placeholder:text-slate-500"
+            />
+            <label className="mt-3 block text-xs font-medium text-slate-600" htmlFor="food-desc">
+              Description
+            </label>
+            <textarea
+              id="food-desc"
+              value={foodForm.description}
+              onChange={(event) => setFoodForm({ ...foodForm, description: event.target.value })}
+              placeholder="Short description for guests"
+              rows={3}
+              className="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2 text-slate-900 placeholder:text-slate-500"
+            />
+            <label className="mt-3 block text-xs font-medium text-slate-600" htmlFor="food-url">
+              Info URL
+            </label>
+            <input
+              id="food-url"
+              value={foodForm.infoUrl}
+              onChange={(event) => setFoodForm({ ...foodForm, infoUrl: event.target.value })}
+              placeholder="https://..."
+              className="mt-1 w-full rounded-lg border border-slate-400 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500"
             />
             <div className="mt-4 flex justify-end gap-2">
               <button

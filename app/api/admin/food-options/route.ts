@@ -12,6 +12,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const title = String(body?.title ?? "").trim();
+    const description =
+      typeof body?.description === "string" ? body.description.trim() || null : null;
+    const infoUrl = typeof body?.infoUrl === "string" ? body.infoUrl.trim() || null : null;
 
     if (!title) {
       return NextResponse.json({ error: "Title is required." }, { status: 400 });
@@ -21,6 +24,8 @@ export async function POST(request: Request) {
     const option = await prisma.foodOption.create({
       data: {
         title,
+        description,
+        infoUrl,
         sortOrder: Number.isInteger(body?.sortOrder) ? body.sortOrder : count,
       },
     });

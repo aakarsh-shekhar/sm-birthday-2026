@@ -8,6 +8,9 @@ export async function PATCH(request: Request, context: Context) {
     const { id } = await context.params;
     const body = await request.json();
     const title = String(body?.title ?? "").trim();
+    const description =
+      typeof body?.description === "string" ? body.description.trim() || null : null;
+    const infoUrl = typeof body?.infoUrl === "string" ? body.infoUrl.trim() || null : null;
 
     if (!title) {
       return NextResponse.json({ error: "Title is required." }, { status: 400 });
@@ -15,7 +18,7 @@ export async function PATCH(request: Request, context: Context) {
 
     const option = await prisma.foodOption.update({
       where: { id },
-      data: { title },
+      data: { title, description, infoUrl },
     });
 
     return NextResponse.json({ option });

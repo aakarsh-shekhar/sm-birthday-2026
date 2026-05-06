@@ -26,7 +26,7 @@ async function main() {
         title: activity.title,
         description: activity.description ?? null,
         category: activity.category ?? null,
-        imageUrl: null,
+        imageUrl: activity.imageUrl ?? null,
         activityUrl: activity.activityUrl ?? null,
         includedInStay: activity.includedInStay ?? null,
         sortOrder: index,
@@ -34,8 +34,10 @@ async function main() {
     });
 
     await tx.foodOption.createMany({
-      data: seedFoodOptions.map((title, index) => ({
-        title,
+      data: seedFoodOptions.map((option, index) => ({
+        title: option.title,
+        description: option.description ?? null,
+        infoUrl: option.infoUrl ?? null,
         sortOrder: index,
       })),
     });

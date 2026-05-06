@@ -20,6 +20,17 @@ model Participant {
   foodSelections FoodSelection[]
   groceryNote    GroceryNote?
   groceryItems   GroceryItem[]
+  easterEggFinds EasterEggFind[]
+}
+
+model EasterEggFind {
+  id            String      @id @default(cuid())
+  participantId String
+  eggKey        String
+  createdAt     DateTime    @default(now())
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, eggKey])
 }
 
 model Activity {
@@ -51,6 +62,8 @@ model Swipe {
 model FoodOption {
   id          String          @id @default(cuid())
   title       String
+  description String?
+  infoUrl     String?
   sortOrder   Int             @default(0)
   createdAt   DateTime        @default(now())
   selections  FoodSelection[]

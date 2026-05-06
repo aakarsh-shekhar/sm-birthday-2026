@@ -2,7 +2,26 @@
 
 import Image from "next/image";
 import { Great_Vibes } from "next/font/google";
-import { FormEvent, TouchEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  TouchEvent,
+  type UIEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import { EasterEggToast, type EasterEggToastPayload } from "@/app/components/EasterEggToast";
+import {
+  flushPendingEasterEggs,
+  getPendingEasterEggs,
+  persistSessionParticipantId,
+  queueEasterEgg,
+  reportEasterEggToServer,
+} from "@/lib/easter-egg-client";
+import { EASTER_EGG_KEYS, type EasterEggKey, easterEggToastLine } from "@/lib/easter-eggs";
 
 type Activity = {
   id: string;
@@ -17,6 +36,8 @@ type Activity = {
 type FoodOption = {
   id: string;
   title: string;
+  description: string | null;
+  infoUrl: string | null;
 };
 
 type GroceryItem = {
@@ -31,6 +52,17 @@ const greatVibes = Great_Vibes({
   weight: "400",
   subsets: ["latin"],
 });
+
+/** Time guest must keep the quote bar in view (cumulative) on pre-name landing. */
+const QUOTE_DWELL_MS = 10_000;
+
+/** One quote per full-screen landing section; bottom bar, centered, max 4 lines each. */
+const LANDING_SCROLL_QUOTES = [
+  "The heart of our crew,\nthe warmest welcome at every door,\nSumeet Mama—this weekend\nis written around you.",
+  "A pause for the one we came to celebrate—\nthen we fold laughter, water,\nand every vote into one story.",
+  "Three small steps, then you are in.\nYour picks become the route;\nyour voice ties the bow\non the birthday surprise.",
+  "Almost there. Breathe once,\nadd your name, and jump in—\nyour seat is saved\nwhere the best stories start.",
+] as const;
 
 async function parseJsonSafe(response: Response) {
   const raw = await response.text();
@@ -81,9 +113,10 @@ function getHostFromUrl(url: string | null) {
 
 function normalizeImagePath(url: string | null) {
   if (!url || !url.trim()) return "/activity-images/default-activity.svg";
-  return /^\/activity-images\/upload-/i.test(url)
-    ? url
-    : "/activity-images/default-activity.svg";
+  const t = url.trim();
+  if (t.startsWith("http://") || t.startsWith("https://")) return t;
+  if (t.startsWith("/activity-images/")) return t;
+  return "/activity-images/default-activity.svg";
 }
 
 export default function Home() {
@@ -105,6 +138,87 @@ export default function Home() {
   const [groceryLoading, setGroceryLoading] = useState(false);
   const [foodLoadedOnce, setFoodLoadedOnce] = useState(false);
   const [groceryLoadedOnce, setGroceryLoadedOnce] = useState(false);
+  const [landingQuoteIndex, setLandingQuoteIndex] = useState(0);
+  const [landingQuoteVisible, setLandingQuoteVisible] = useState(false);
+  const [landingQuoteDisplayIndex, setLandingQuoteDisplayIndex] = useState(0);
+  const [landingQuoteFadeIn, setLandingQuoteFadeIn] = useState(true);
+  const landingQuoteTargetRef = useRef(landingQuoteIndex);
+  landingQuoteTargetRef.current = landingQuoteIndex;
+
+  useEffect(() => {
+    if (landingQuoteIndex === landingQuoteDisplayIndex) {
+      setLandingQuoteFadeIn(true);
+      return;
+    }
+    setLandingQuoteFadeIn(false);
+    const delayMs = 420;
+    const id = window.setTimeout(() => {
+      setLandingQuoteDisplayIndex(landingQuoteTargetRef.current);
+      requestAnimationFrame(() => setLandingQuoteFadeIn(true));
+    }, delayMs);
+    return () => window.clearTimeout(id);
+  }, [landingQuoteIndex, landingQuoteDisplayIndex]);
+
+  const [dogPortraitZoom, setDogPortraitZoom] = useState(false);
+  const dogHotSpotLastTapRef = useRef(0);
+  const sessionEggsReportedRef = useRef<Set<string>>(new Set());
+  const foodTitleTapRef = useRef({ count: 0, at: 0 });
+  const quoteDwellAccumRef = useRef(0);
+  const quoteDwellDoneRef = useRef(false);
+  const landingDeepDoneRef = useRef(false);
+  const finishCelebrationEggRef = useRef(false);
+  const swipeHalfwayEggRef = useRef(false);
+  const [eggToast, setEggToast] = useState<EasterEggToastPayload>(null);
+
+  const dismissEggToast = useCallback(() => setEggToast(null), []);
+
+  const recordEggFind = useCallback(
+    async (key: EasterEggKey) => {
+      const line = easterEggToastLine(key);
+      if (!participantId) {
+        if (!queueEasterEgg(key)) return;
+        const n = getPendingEasterEggs().length;
+        setEggToast({ count: n, line });
+        return;
+      }
+      if (sessionEggsReportedRef.current.has(key)) return;
+      const unique = await reportEasterEggToServer(participantId, key);
+      if (unique != null) {
+        sessionEggsReportedRef.current.add(key);
+        setEggToast({ count: unique, line });
+      }
+    },
+    [participantId],
+  );
+
+  function triggerDogPortraitEgg() {
+    setDogPortraitZoom(true);
+    window.setTimeout(() => setDogPortraitZoom(false), 720);
+    void recordEggFind("dog_double_tap");
+  }
+
+  function onDogPortraitHotSpotActivate() {
+    const now = Date.now();
+    if (now - dogHotSpotLastTapRef.current < 450) {
+      dogHotSpotLastTapRef.current = 0;
+      triggerDogPortraitEgg();
+    } else {
+      dogHotSpotLastTapRef.current = now;
+    }
+  }
+
+  function onFoodPicksTitleInteract() {
+    const now = Date.now();
+    if (now - foodTitleTapRef.current.at > 650) {
+      foodTitleTapRef.current = { count: 0, at: now };
+    }
+    foodTitleTapRef.current.count += 1;
+    foodTitleTapRef.current.at = now;
+    if (foodTitleTapRef.current.count >= 3) {
+      foodTitleTapRef.current.count = 0;
+      void recordEggFind("food_title_triple");
+    }
+  }
 
   const currentActivity = activities[index];
   const total = activities.length;
@@ -117,6 +231,40 @@ export default function Home() {
     if (!total) return 0;
     return Math.round((index / total) * 100);
   }, [index, total]);
+
+  useEffect(() => {
+    if (participantId) {
+      persistSessionParticipantId(participantId);
+    }
+  }, [participantId]);
+
+  useEffect(() => {
+    if (participantId || quoteDwellDoneRef.current) return;
+    if (!landingQuoteVisible) return;
+    const tickMs = 500;
+    const id = window.setInterval(() => {
+      quoteDwellAccumRef.current += tickMs;
+      if (quoteDwellAccumRef.current >= QUOTE_DWELL_MS && !quoteDwellDoneRef.current) {
+        quoteDwellDoneRef.current = true;
+        void recordEggFind("quote_dwell");
+      }
+    }, tickMs);
+    return () => window.clearInterval(id);
+  }, [landingQuoteVisible, participantId, recordEggFind]);
+
+  useEffect(() => {
+    if (!isFinished || finishCelebrationEggRef.current) return;
+    finishCelebrationEggRef.current = true;
+    void recordEggFind("finish_celebration");
+  }, [isFinished, recordEggFind]);
+
+  useEffect(() => {
+    if (!participantId || total < 2 || swipeHalfwayEggRef.current) return;
+    if (progress >= 50) {
+      swipeHalfwayEggRef.current = true;
+      void recordEggFind("swipe_halfway");
+    }
+  }, [progress, participantId, total, recordEggFind]);
 
   async function startSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,6 +295,8 @@ export default function Home() {
         throw new Error("Received an invalid response from the server.");
       }
 
+      const pendingBeforeFlush = getPendingEasterEggs();
+
       setParticipantId(data.participantId);
       setActivities(data.activities as Activity[]);
       setIndex(0);
@@ -157,6 +307,22 @@ export default function Home() {
       setGroceryItemInput("");
       setFoodLoadedOnce(false);
       setGroceryLoadedOnce(false);
+
+      const finalUnique = await flushPendingEasterEggs(data.participantId);
+      if (pendingBeforeFlush.length > 0 && finalUnique != null) {
+        pendingBeforeFlush.forEach((eggKey) => {
+          sessionEggsReportedRef.current.add(eggKey);
+        });
+        pendingBeforeFlush.forEach((eggKey, i) => {
+          window.setTimeout(() => {
+            setEggToast({
+              count:
+                i === pendingBeforeFlush.length - 1 ? finalUnique : Math.min(i + 1, EASTER_EGG_KEYS.length),
+              line: easterEggToastLine(eggKey),
+            });
+          }, i * 950);
+        });
+      }
     } catch (sessionError) {
       setError(
         sessionError instanceof Error ? sessionError.message : "Something went wrong.",
@@ -229,6 +395,8 @@ export default function Home() {
       reaction = touchDelta.x > 0 ? "LIKE" : "PASS";
     } else if (touchDelta.y < 0 && absY >= threshold) {
       reaction = "SUPERLIKE";
+    } else if (touchDelta.y > 0 && absY >= threshold && absY >= absX) {
+      void recordEggFind("card_down_swipe");
     }
 
     setTouchStart(null);
@@ -325,6 +493,9 @@ export default function Home() {
       if (!response.ok) {
         throw new Error(typeof data?.error === "string" ? data.error : "Could not add grocery item.");
       }
+      if (item.toLowerCase() === "sparkles") {
+        void recordEggFind("grocery_sparkles");
+      }
       setGroceryItemInput("");
       await loadGroceryItems();
     } catch (groceryError) {
@@ -370,10 +541,30 @@ export default function Home() {
   const activityHost = getHostFromUrl(currentActivity?.activityUrl ?? null);
   const activityImageUrl = normalizeImagePath(currentActivity?.imageUrl ?? null);
 
+  function onLandingScroll(event: UIEvent<HTMLElement>) {
+    const el = event.currentTarget;
+    const viewH = el.clientHeight;
+    const st = el.scrollTop;
+    setLandingQuoteVisible(st > 40);
+    const idx = Math.min(
+      LANDING_SCROLL_QUOTES.length - 1,
+      Math.max(0, Math.floor(st / viewH)),
+    );
+    setLandingQuoteIndex(idx);
+    const sectionIdx = Math.floor(st / viewH);
+    if (!landingDeepDoneRef.current && sectionIdx >= 3) {
+      landingDeepDoneRef.current = true;
+      void recordEggFind("landing_deep_scroll");
+    }
+  }
+
   if (!participantId) {
     return (
-      <main
-        className="h-screen snap-y snap-mandatory overflow-y-auto bg-slate-950 text-slate-100"
+      <>
+        <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <main
+        onScroll={onLandingScroll}
+        className="relative h-screen snap-y snap-mandatory overflow-y-auto bg-slate-950 pb-36 text-slate-100"
         style={{
           backgroundImage:
             "linear-gradient(rgba(15,23,42,0.8), rgba(15,23,42,0.92)), url('/party-bg.svg')",
@@ -382,33 +573,65 @@ export default function Home() {
           backgroundAttachment: "fixed",
         }}
       >
-        <section className="mx-auto flex min-h-screen w-full max-w-4xl snap-start flex-col justify-center px-6 py-16">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">
-            A Legacy of Celebration
-          </p>
-          <h1 className={`mt-4 text-6xl leading-none text-amber-300 sm:text-7xl ${greatVibes.className}`}>
-            Happy Birthday Sumeet
+        <section className="mx-auto flex min-h-screen w-full max-w-3xl snap-start flex-col items-center justify-center px-6 py-16 text-center">
+          <button
+            type="button"
+            onClick={() => void recordEggFind("legacy_line")}
+            className="text-[11px] font-semibold uppercase tracking-[0.28em] text-amber-200/95"
+          >
+            A legacy of celebration
+          </button>
+          <h1 className={`mt-5 text-6xl leading-[1.05] text-amber-300 sm:text-7xl ${greatVibes.className}`}>
+            Happy Birthday Sumeet!
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-relaxed text-slate-200">
-            This is not just a trip plan. It is a birthday experience designed by the people who
-            matter most. Scroll to begin your part in creating the perfect day.
+          <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-slate-200/95 sm:text-lg">
+            A curated trip plan and a shared toast to someone who means the world to this crew.
+            Scroll when you are ready to add your voice to the weekend.
           </p>
-          <p className="mt-8 text-sm text-slate-300">Scroll down to continue ↓</p>
+          <p className="mt-12 flex items-center justify-center gap-2 text-sm text-slate-400">
+            <span className="inline-block h-px w-8 bg-amber-400/50" aria-hidden />
+            <span>Scroll</span>
+            <span className="text-amber-200/80" aria-hidden>
+              ↓
+            </span>
+          </p>
         </section>
 
-        <section className="mx-auto flex min-h-screen w-full max-w-4xl snap-start flex-col justify-center px-6 py-16">
-          <div className="rounded-3xl border border-white/15 bg-slate-900/60 p-7 shadow-xl backdrop-blur">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-200">
-              The Vibe
-            </p>
-            <h2 className="mt-3 text-3xl font-bold text-white sm:text-4xl">
-              Poolside energy, chill moments, and unforgettable laughs
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-slate-200">
-              From adrenaline slides to laid-back hangouts, everyone gets to vote so the final
-              itinerary feels personal, balanced, and worthy of Sumeet Mama&apos;s birthday.
-            </p>
+        <section className="mx-auto flex min-h-screen w-full max-w-lg snap-start flex-col items-center justify-center px-6 py-16">
+          <p className="mb-8 text-[11px] font-semibold uppercase tracking-[0.26em] text-amber-200/90">
+            Guest of honour
+          </p>
+          <div className="relative w-full max-w-[320px]">
+            <div className="absolute -inset-4 -z-10 rounded-[1.35rem] bg-gradient-to-br from-amber-500/18 via-transparent to-sky-500/10 blur-2xl" aria-hidden />
+            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-slate-900 shadow-[0_28px_56px_-12px_rgba(0,0,0,0.55)] ring-1 ring-white/12">
+              <div
+                className={`relative h-full w-full origin-[50%_85%] transition-transform duration-[720ms] ease-out ${
+                  dogPortraitZoom ? "scale-[1.2]" : "scale-100"
+                }`}
+              >
+                <div
+                  className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-slate-950/35 via-transparent to-slate-950/10"
+                  aria-hidden
+                />
+                <Image
+                  src="/sumeet-mama-bday.png"
+                  alt="Sumeet Mama"
+                  fill
+                  className="object-cover object-[center_72%]"
+                  sizes="320px"
+                  priority
+                  unoptimized
+                />
+              </div>
+              <button
+                type="button"
+                aria-label="Portrait detail"
+                onClick={onDogPortraitHotSpotActivate}
+                className="absolute bottom-0 left-1/2 z-20 h-[38%] w-[min(220px,70%)] max-w-[240px] -translate-x-1/2 cursor-zoom-in border-0 bg-transparent p-0"
+              />
+            </div>
           </div>
+          <p className="mt-10 text-sm text-slate-400">Keep scrolling ↓</p>
         </section>
 
         <section className="mx-auto flex min-h-screen w-full max-w-4xl snap-start flex-col justify-center px-6 py-16">
@@ -457,7 +680,32 @@ export default function Home() {
             {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
           </form>
         </section>
+
+        <aside
+          aria-live="polite"
+          className={`fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-slate-950/92 backdrop-blur-md transition-opacity duration-500 ease-out ${
+            landingQuoteVisible ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+          role="complementary"
+        >
+          <div
+            className={`mx-auto max-w-md px-5 py-3 text-center transition-[opacity,transform] duration-[420ms] ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:duration-200 sm:max-w-lg sm:py-4 ${
+              landingQuoteFadeIn
+                ? "translate-y-0 opacity-100 motion-reduce:translate-y-0"
+                : "translate-y-2 opacity-0 motion-reduce:translate-y-0"
+            }`}
+          >
+            <p className="whitespace-pre-line text-sm leading-snug text-slate-100 sm:text-base sm:leading-relaxed">
+              {LANDING_SCROLL_QUOTES[landingQuoteDisplayIndex]}
+            </p>
+          </div>
+          <div
+            className="h-[max(0.75rem,env(safe-area-inset-bottom))]"
+            aria-hidden
+          />
+        </aside>
       </main>
+      </>
     );
   }
 
@@ -470,7 +718,9 @@ export default function Home() {
     }));
 
     return (
-      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 text-slate-100">
+      <>
+        <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 text-slate-100">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.18),_transparent_55%)]" />
         <section className="relative z-10 w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-8 text-center shadow-[0_24px_80px_rgba(2,6,23,0.6)] backdrop-blur">
           <p className={`text-5xl text-amber-300 ${greatVibes.className}`}>Cheers!</p>
@@ -521,55 +771,95 @@ export default function Home() {
           }
         `}</style>
       </main>
+      </>
     );
   }
 
   if (isChoosingFood) {
     return (
-      <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
+      <>
+        <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
         <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
-          <p className={`text-4xl text-amber-300 ${greatVibes.className}`}>Food Picks</p>
+          <button
+            type="button"
+            onClick={onFoodPicksTitleInteract}
+            className={`w-full cursor-default select-none text-left text-4xl text-amber-300 ${greatVibes.className}`}
+          >
+            Food Picks
+          </button>
           <p className="mt-2 text-sm text-slate-300">
             Pick anything you would like during the celebration.
           </p>
           {foodLoading ? <p className="mt-4 text-sm text-slate-400">Loading options...</p> : null}
-          <div className="mt-4 max-h-[45vh] space-y-2 overflow-y-auto pr-1">
-            {foodOptions.map((option) => (
-              <label
-                key={option.id}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedFoodOptionIds.includes(option.id)}
-                  onChange={(event) => {
-                    setSelectedFoodOptionIds((prev) =>
-                      event.target.checked
-                        ? [...prev, option.id]
-                        : prev.filter((id) => id !== option.id),
-                    );
-                  }}
-                />
-                <span>{option.title}</span>
-              </label>
-            ))}
+          <div className="mt-4 max-h-[50vh] space-y-3 overflow-y-auto pr-1">
+            {foodOptions.map((option) => {
+              const host = getHostFromUrl(option.infoUrl);
+              const inputId = `food-opt-${option.id}`;
+              return (
+                <div
+                  key={option.id}
+                  className="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-3 transition-colors hover:border-amber-400/25 hover:bg-white/[0.08]"
+                >
+                  <div className="flex gap-3">
+                    <input
+                      id={inputId}
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 shrink-0 rounded border-slate-500 text-amber-400 focus:ring-amber-400/50"
+                      checked={selectedFoodOptionIds.includes(option.id)}
+                      onChange={(event) => {
+                        setSelectedFoodOptionIds((prev) =>
+                          event.target.checked
+                            ? [...prev, option.id]
+                            : prev.filter((id) => id !== option.id),
+                        );
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <label htmlFor={inputId} className="cursor-pointer">
+                        <span className="font-medium text-slate-100">{option.title}</span>
+                        {option.description ? (
+                          <p className="mt-1.5 text-sm leading-relaxed text-slate-400">
+                            {option.description}
+                          </p>
+                        ) : null}
+                      </label>
+                      {option.infoUrl ? (
+                        <a
+                          href={option.infoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex text-sm font-medium text-amber-300/95 underline decoration-amber-400/40 underline-offset-2 hover:text-amber-200"
+                        >
+                          {host ? `View on ${host}` : "Open details"}
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
           <button
+            type="button"
             onClick={submitFoodSelections}
             disabled={isLoading}
-            className="mt-5 w-full rounded-lg bg-amber-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+            className="mt-5 w-full rounded-lg bg-amber-400 px-4 py-2.5 font-semibold text-slate-950 disabled:opacity-50"
           >
-            {isLoading ? "Saving..." : "Continue to grocery note"}
+            {isLoading ? "Saving..." : "Continue"}
           </button>
           {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
         </section>
       </main>
+      </>
     );
   }
 
   if (isWritingGrocery) {
     return (
-      <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
+      <>
+        <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
         <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
           <p className={`text-4xl text-amber-300 ${greatVibes.className}`}>Grocery List</p>
           <p className="mt-2 text-sm text-slate-300">
@@ -615,10 +905,13 @@ export default function Home() {
           {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
         </section>
       </main>
+      </>
     );
   }
 
   return (
+    <>
+      <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
     <main
       className="fixed inset-0 flex h-[100dvh] flex-col overflow-hidden bg-slate-950 text-slate-100"
       style={{
@@ -767,5 +1060,6 @@ export default function Home() {
         ) : null}
       </div>
     </main>
+    </>
   );
 }

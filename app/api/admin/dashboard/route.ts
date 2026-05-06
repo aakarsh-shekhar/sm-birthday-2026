@@ -37,6 +37,10 @@ export async function GET() {
           select: { id: true, item: true, createdAt: true },
           orderBy: { createdAt: "asc" },
         },
+        easterEggFinds: {
+          select: { eggKey: true },
+          orderBy: { createdAt: "asc" },
+        },
       },
     }),
     prisma.foodOption.findMany({

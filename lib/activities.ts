@@ -1,3 +1,5 @@
+import { activityImageUrl } from "./activity-images";
+
 export type SeedActivity = {
   title: string;
   description?: string;
@@ -7,10 +9,11 @@ export type SeedActivity = {
   includedInStay?: boolean;
 };
 
-/** Seeded from `CenterParcs ACTIVITIES/CENTER PARCS ACTIVITIES.xlsx` */
+/** Seeded from `CenterParcs ACTIVITIES/CENTER PARCS ACTIVITIES.xlsx`; images in `public/activity-images/center-parcs/`. */
 export const seedActivities: SeedActivity[] = [
   {
     title: "E-bike Rental",
+    imageUrl: activityImageUrl("E-bike Rental", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description:
@@ -19,6 +22,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Kickbike E-Scooter Rental",
+    imageUrl: activityImageUrl("Kickbike E-Scooter Rental", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description:
@@ -28,6 +32,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "E-car Rental (4/6 people)",
+    imageUrl: activityImageUrl("E-car Rental (4/6 people)", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description: "Rent an E-car to easily move through our car-free parks.",
@@ -35,6 +40,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Bicycle Rental",
+    imageUrl: activityImageUrl("Bicycle Rental", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description:
@@ -43,6 +49,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Mountain Bike Rental",
+    imageUrl: activityImageUrl("Mountain Bike Rental", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description: "Rent a mountain bike to discover the beauty of nature.",
@@ -50,6 +57,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Adventure Foot Golf",
+    imageUrl: activityImageUrl("Adventure Foot Golf", "webp"),
     category: "Sports and Fun",
     includedInStay: false,
     description:
@@ -59,6 +67,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Badminton",
+    imageUrl: activityImageUrl("Badminton", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description: "Our badminton courts are suitable for beginners and advanced.",
@@ -66,6 +75,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Climbing Paradise",
+    imageUrl: activityImageUrl("Climbing Paradise", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description:
@@ -75,6 +85,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Escape Room - Time Traveler",
+    imageUrl: activityImageUrl("Escape Room - Time Traveler", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description:
@@ -84,6 +95,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Escape Room - Great Robbery",
+    imageUrl: activityImageUrl("Escape Room - Great Robbery", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description: "Live Escape Room is an exciting challenging and unpredictable game.",
@@ -92,6 +104,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Family Laser Battle",
+    imageUrl: activityImageUrl("Family Laser Battle", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description:
@@ -101,6 +114,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Squash",
+    imageUrl: activityImageUrl("Squash", "avif"),
     category: "Sports and Fun",
     includedInStay: false,
     description:
@@ -109,6 +123,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Jungle Dome",
+    imageUrl: activityImageUrl("Jungle Dome", "webp"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -117,6 +132,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Fishing",
+    imageUrl: activityImageUrl("Fishing", "avif"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -125,6 +141,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Animal Care",
+    imageUrl: activityImageUrl("Animal Care", "avif"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -133,6 +150,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Table Tennis",
+    imageUrl: activityImageUrl("Table Tennis", "avif"),
     category: "Sports and Fun",
     includedInStay: true,
     description: "Fancy a game of table tennis? Then there are tables waiting for you inside.",
@@ -140,6 +158,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Playground",
+    imageUrl: activityImageUrl("Playground", "webp"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -148,6 +167,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Sport Match Broadcast",
+    imageUrl: activityImageUrl("Sport Match Broadcast", "webp"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -156,6 +176,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Digital Nature Discovery",
+    imageUrl: activityImageUrl("Digital Nature Discovery", "jpg"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -164,6 +185,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Petting Zoo",
+    imageUrl: activityImageUrl("Petting Zoo", "avif"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -172,6 +194,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Family Board Game Package",
+    imageUrl: activityImageUrl("Family Board Game Package", "avif"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -180,6 +203,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Chill Tunes: Live",
+    imageUrl: activityImageUrl("Chill Tunes: Live", "webp"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -188,6 +212,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Family Game Battle",
+    imageUrl: activityImageUrl("Family Game Battle", "avif"),
     category: "Sports and Fun",
     includedInStay: true,
     description:
@@ -196,6 +221,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Dive Introduction",
+    imageUrl: activityImageUrl("Dive Introduction", "avif"),
     category: "Aqua Fun",
     includedInStay: false,
     description:
@@ -205,6 +231,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Snorkelling Pool",
+    imageUrl: activityImageUrl("Snorkelling Pool", "avif"),
     category: "Aqua Fun",
     includedInStay: true,
     description:
@@ -213,6 +240,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Duo Racer",
+    imageUrl: activityImageUrl("Duo Racer", "webp"),
     category: "Aqua Fun",
     includedInStay: true,
     description:
@@ -221,6 +249,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Hot Tubs",
+    imageUrl: activityImageUrl("Hot Tubs", "avif"),
     category: "Aqua Fun",
     includedInStay: true,
     description:
@@ -229,6 +258,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Wave Pool",
+    imageUrl: activityImageUrl("Wave Pool", "avif"),
     category: "Aqua Fun",
     includedInStay: true,
     description:
@@ -237,6 +267,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Whitewater Course",
+    imageUrl: activityImageUrl("Whitewater Course", "avif"),
     category: "Aqua Fun",
     includedInStay: true,
     description:
@@ -245,6 +276,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Water Slides",
+    imageUrl: activityImageUrl("Water Slides", "webp"),
     category: "Aqua Fun",
     includedInStay: true,
     description:
@@ -253,6 +285,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Outdoor Heated Pool",
+    imageUrl: activityImageUrl("Outdoor Heated Pool", "avif"),
     category: "Aqua Fun",
     includedInStay: true,
     description:
@@ -261,6 +294,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Crazy Bingo Game",
+    imageUrl: activityImageUrl("Crazy Bingo Game", "avif"),
     category: "Entertainment",
     includedInStay: false,
     description:
@@ -269,6 +303,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Live Entertainment",
+    imageUrl: activityImageUrl("Live Entertainment", "avif"),
     category: "Entertainment",
     includedInStay: true,
     description: "Enjoy a live performance brought by our own entertainers.",
@@ -277,6 +312,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Live Music",
+    imageUrl: activityImageUrl("Live Music", "avif"),
     category: "Entertainment",
     includedInStay: true,
     description:
@@ -285,6 +321,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Family Quiz Night",
+    imageUrl: activityImageUrl("Family Quiz Night", "webp"),
     category: "Entertainment",
     includedInStay: true,
     description:
@@ -293,6 +330,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Night Out",
+    imageUrl: activityImageUrl("Night Out", "webp"),
     category: "Entertainment",
     includedInStay: true,
     description:
@@ -301,6 +339,7 @@ export const seedActivities: SeedActivity[] = [
   },
   {
     title: "Arovite Wellness and Beauty",
+    imageUrl: activityImageUrl("Arovite Wellness and Beauty", "avif"),
     category: "Spa and Wellness",
     includedInStay: false,
     description:
