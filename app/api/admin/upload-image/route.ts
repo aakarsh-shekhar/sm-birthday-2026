@@ -5,6 +5,9 @@ import { NextResponse } from "next/server";
 
 const uploadDir = path.join(process.cwd(), "public", "activity-images");
 
+/** Vercel serverless request bodies are limited to ~4.5MB including multipart overhead. */
+const MAX_UPLOAD_BYTES = 4_300_000;
+
 function extFromType(type: string) {
   if (type === "image/png") return "png";
   if (type === "image/webp") return "webp";
@@ -24,6 +27,15 @@ export async function POST(request: Request) {
 
     if (!file.type.startsWith("image/")) {
       return NextResponse.json({ error: "Only image uploads are supported." }, { status: 400 });
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        {
+          error: `Image too large (${Math.round(file.size / 1e6)}MB). Maximum is about 4MB including hosting limits—use a smaller image or export as JPEG.`,
+        },
+        { status: 413 },
+      );
     }
 
     const extension = extFromType(file.type);

@@ -3,6 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
 
+import { compressImageForAdminUpload } from "@/lib/client-compress-upload-image";
+
 type DashboardSwipe = {
   id: string;
   reaction: "PASS" | "LIKE" | "SUPERLIKE";
@@ -211,13 +213,23 @@ export default function AdminPage() {
     setUploadingImage(true);
     setMessage(null);
     try {
+      const prepared = await compressImageForAdminUpload(file);
       const body = new FormData();
-      body.append("file", file);
+      body.append("file", prepared);
       const response = await fetch("/api/admin/upload-image", {
         method: "POST",
         body,
       });
-      const data = (await response.json()) as { imageUrl?: string; error?: string };
+      const data = (await response.json().catch(() => ({}))) as {
+        imageUrl?: string;
+        error?: string;
+      };
+      if (response.status === 413) {
+        throw new Error(
+          data.error ??
+            "Image is still too large for the server (max ~4MB on hosting). Try a smaller file or another format.",
+        );
+      }
       if (!response.ok || !data.imageUrl) {
         throw new Error(data.error ?? "Could not upload image.");
       }
