@@ -48,6 +48,8 @@ type GroceryItem = {
 
 type Reaction = "PASS" | "LIKE" | "SUPERLIKE";
 
+type SessionEntryMode = "full" | "grocery_only";
+
 const greatVibes = Great_Vibes({
   weight: "400",
   subsets: ["latin"],
@@ -138,6 +140,7 @@ export default function Home() {
   const [groceryLoading, setGroceryLoading] = useState(false);
   const [foodLoadedOnce, setFoodLoadedOnce] = useState(false);
   const [groceryLoadedOnce, setGroceryLoadedOnce] = useState(false);
+  const [enteredViaGroceryOnly, setEnteredViaGroceryOnly] = useState(false);
   const [landingQuoteIndex, setLandingQuoteIndex] = useState(0);
   const [landingQuoteVisible, setLandingQuoteVisible] = useState(false);
   const [landingQuoteDisplayIndex, setLandingQuoteDisplayIndex] = useState(0);
@@ -266,8 +269,7 @@ export default function Home() {
     }
   }, [progress, participantId, total, recordEggFind]);
 
-  async function startSession(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function startSessionWithMode(mode: SessionEntryMode) {
     setError(null);
 
     if (!name.trim()) {
@@ -295,12 +297,19 @@ export default function Home() {
         throw new Error("Received an invalid response from the server.");
       }
 
+      const activitiesList = data.activities as Activity[];
       const pendingBeforeFlush = getPendingEasterEggs();
 
       setParticipantId(data.participantId);
-      setActivities(data.activities as Activity[]);
-      setIndex(0);
-      setFoodStepDone(false);
+      setActivities(activitiesList);
+      setEnteredViaGroceryOnly(mode === "grocery_only");
+      if (mode === "grocery_only") {
+        setIndex(activitiesList.length);
+        setFoodStepDone(true);
+      } else {
+        setIndex(0);
+        setFoodStepDone(false);
+      }
       setGroceryStepDone(false);
       setSelectedFoodOptionIds([]);
       setGroceryItems([]);
@@ -330,6 +339,11 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function startFullSession(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void startSessionWithMode("full");
   }
 
   async function submitReaction(reaction: Reaction) {
@@ -665,7 +679,9 @@ export default function Home() {
             </div>
             <div className="rounded-2xl border border-white/15 bg-white/10 p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">Step 2</p>
-              <p className="mt-2 text-sm text-slate-100">Swipe through every activity.</p>
+              <p className="mt-2 text-sm text-slate-100">
+                Swipe activities &amp; pick food — or head straight to the grocery list.
+              </p>
             </div>
             <div className="rounded-2xl border border-white/15 bg-white/10 p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">Step 3</p>
@@ -676,13 +692,16 @@ export default function Home() {
 
         <section className="mx-auto flex min-h-screen w-full max-w-2xl snap-start flex-col justify-center px-6 py-16">
           <form
-            onSubmit={startSession}
+            onSubmit={startFullSession}
             className="rounded-3xl border border-white/20 bg-slate-900/75 p-7 shadow-[0_20px_60px_rgba(2,6,23,0.55)] backdrop-blur"
           >
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
               Your turn
             </p>
-            <h3 className="mt-2 text-2xl font-bold text-white">Enter your name and start voting</h3>
+            <h3 className="mt-2 text-2xl font-bold text-white">Enter your name to join</h3>
+            <p className="mt-2 text-sm text-slate-400">
+              Vote on activities and food, or skip straight to the shared grocery list.
+            </p>
             <label className="mt-5 mb-2 block text-sm font-medium text-slate-100" htmlFor="name">
               Name
             </label>
@@ -698,7 +717,15 @@ export default function Home() {
               disabled={isLoading}
               className="mt-5 w-full rounded-lg bg-amber-400 px-4 py-2 font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-50"
             >
-              {isLoading ? "Starting..." : "Start activity voting"}
+              {isLoading ? "Starting..." : "Continue to activities & food"}
+            </button>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => void startSessionWithMode("grocery_only")}
+              className="mt-3 w-full rounded-lg border border-white/25 bg-transparent px-4 py-2.5 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
+            >
+              I only need the grocery list
             </button>
             {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
           </form>
@@ -888,6 +915,11 @@ export default function Home() {
           <p className="mt-2 text-sm text-slate-300">
             See the shared list and add your own items one-by-one.
           </p>
+          {enteredViaGroceryOnly ? (
+            <p className="mt-2 text-xs text-sky-300/90">
+              You skipped activity voting and food picks — add anything the group should grab.
+            </p>
+          ) : null}
           <div className="mt-4 max-h-[36vh] overflow-y-auto rounded-lg border border-white/15 bg-slate-950/50 p-3">
             {groceryLoading ? (
               <p className="text-sm text-slate-400">Loading list...</p>
