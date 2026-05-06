@@ -210,9 +210,12 @@ export default function AdminCatalogPage() {
       <div className="mx-auto w-full max-w-6xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-slate-600">
+            <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium text-slate-600">
               <Link href="/admin" className="text-sky-800 underline underline-offset-2 hover:text-sky-900">
                 ← Admin home
+              </Link>
+              <Link href="/" className="text-sky-800 underline underline-offset-2 hover:text-sky-900">
+                ← Guest voting home
               </Link>
             </p>
             <h1 className="mt-1 text-3xl font-bold text-slate-900">Catalog & food</h1>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { EasterEggToast, type EasterEggToastPayload } from "@/app/components/EasterEggToast";
 import { getSessionParticipantId, reportEasterEggToServer } from "@/lib/easter-egg-client";
@@ -16,6 +16,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [eggToast, setEggToast] = useState<EasterEggToastPayload>(null);
+  const [deletingParticipantId, setDeletingParticipantId] = useState<string | null>(null);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const exportTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   async function loadDashboard() {
     setLoading(true);
@@ -71,6 +74,96 @@ export default function AdminPage() {
       .sort((a, b) => a.localeCompare(b));
   }
 
+  const exportPlainText = useMemo(() => {
+    const superLines = ["SUPERLIKES BY ACTIVITY", ""];
+    for (const a of activities) {
+      const names = reactionNames(a, "SUPERLIKE");
+      superLines.push(`${a.title}: ${names.length ? names.join(", ") : "—"}`);
+    }
+    const groceryLines = ["", "GROCERY LIST", ""];
+    if (groceryItems.length === 0) {
+      groceryLines.push("(none yet)");
+    } else {
+      for (const g of groceryItems) {
+        groceryLines.push(`${g.item} (${g.participant.name})`);
+      }
+    }
+    return [...superLines, ...groceryLines].join("\n");
+  }, [activities, groceryItems]);
+
+  const exportCsv = useMemo(() => {
+    const esc = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+    const rows: string[] = [];
+    rows.push(`${esc("Activity")},${esc("Superlikes")}`);
+    for (const a of activities) {
+      const names = reactionNames(a, "SUPERLIKE");
+      rows.push(`${esc(a.title)},${esc(names.length ? names.join("; ") : "—")}`);
+    }
+    rows.push("");
+    rows.push(`${esc("Grocery item")},${esc("Added by")}`);
+    for (const g of groceryItems) {
+      rows.push(`${esc(g.item)},${esc(g.participant.name)}`);
+    }
+    return rows.join("\n");
+  }, [activities, groceryItems]);
+
+  async function copyExportBlock() {
+    setExportMessage(null);
+    try {
+      await navigator.clipboard.writeText(exportPlainText);
+      setExportMessage("Copied to clipboard.");
+    } catch {
+      exportTextareaRef.current?.select();
+      setExportMessage("Copy blocked — text is selected below; use ⌘C / Ctrl+C.");
+    }
+  }
+
+  function downloadExportCsv() {
+    const blob = new Blob([exportCsv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "birthday-export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportMessage("CSV downloaded.");
+  }
+
+  async function deleteParticipant(id: string, displayName: string) {
+    if (
+      !window.confirm(
+        `Remove ${displayName} and delete all their votes, food picks, grocery rows, and easter egg finds? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingParticipantId(id);
+    setMessage(null);
+    setExportMessage(null);
+    try {
+      const res = await fetch(`/api/admin/participants/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const raw = await res.text();
+      let data: Record<string, unknown> = {};
+      if (raw.trim()) {
+        try {
+          data = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+          setMessage("Delete response was not valid JSON.");
+          return;
+        }
+      }
+      if (!res.ok) {
+        setMessage(typeof data.error === "string" ? data.error : "Could not delete participant.");
+        return;
+      }
+      await loadDashboard();
+    } finally {
+      setDeletingParticipantId(null);
+    }
+  }
+
   const eggLeaderboard = useMemo(() => {
     return [...participants]
       .map((participant) => {
@@ -90,13 +183,53 @@ export default function AdminPage() {
     <main className="min-h-screen bg-slate-100 text-slate-900">
       <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
       <div className="mx-auto w-full max-w-6xl p-6">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Admin</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Voting results and easter egg standings. Totals: {participants.length} participants.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Admin</h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Voting results and easter egg standings. Totals: {participants.length} participants.
+            </p>
+          </div>
+          <Link
+            href="/"
+            className="shrink-0 rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            ← Guest voting home
+          </Link>
         </div>
         {message ? <p className="mt-4 text-sm font-medium text-sky-800">{message}</p> : null}
+
+        <section className="mt-8 rounded-2xl border border-slate-300 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Export for WhatsApp / Sheets</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Superlikes by activity plus the shared grocery list — copy as text or download CSV.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void copyExportBlock()}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Copy text block
+            </button>
+            <button
+              type="button"
+              onClick={downloadExportCsv}
+              className="rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+            >
+              Download CSV
+            </button>
+          </div>
+          {exportMessage ? <p className="mt-2 text-sm text-emerald-800">{exportMessage}</p> : null}
+          <textarea
+            ref={exportTextareaRef}
+            readOnly
+            value={exportPlainText}
+            rows={12}
+            className="mt-3 w-full resize-y rounded-lg border border-slate-300 bg-slate-50 p-3 font-mono text-xs text-slate-800"
+            aria-label="Export preview"
+          />
+        </section>
 
         <section className="mt-8" aria-labelledby="easter-section-heading">
           <div className="overflow-hidden rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50/90 via-white to-amber-50/50 shadow-md">
@@ -189,6 +322,7 @@ export default function AdminPage() {
                       <th className="px-4 py-3 text-slate-900">Participant</th>
                       <th className="px-4 py-3 text-slate-900">Found</th>
                       <th className="px-4 py-3 text-slate-900">Eggs</th>
+                      <th className="px-4 py-3 text-right text-slate-900">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -211,6 +345,16 @@ export default function AdminPage() {
                           </td>
                           <td className="px-4 py-3 text-slate-700">
                             {labels.length ? labels.join(" · ") : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              disabled={deletingParticipantId === participant.id}
+                              onClick={() => void deleteParticipant(participant.id, participant.name)}
+                              className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-900 hover:bg-rose-100 disabled:opacity-50"
+                            >
+                              {deletingParticipantId === participant.id ? "Removing…" : "Remove"}
+                            </button>
                           </td>
                         </tr>
                       );
@@ -291,7 +435,13 @@ export default function AdminPage() {
           </div>
         </section>
 
-        <div className="mt-12 flex justify-center border-t border-slate-200 pt-10">
+        <div className="mt-12 flex flex-wrap justify-center gap-3 border-t border-slate-200 pt-10">
+          <Link
+            href="/"
+            className="inline-flex rounded-xl border border-slate-400 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+          >
+            ← Guest voting home
+          </Link>
           <Link
             href="/admin/catalog"
             className="inline-flex rounded-xl border border-slate-400 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"

@@ -50,6 +50,10 @@ export async function POST(request: Request) {
             }),
           ]
         : []),
+      prisma.participant.update({
+        where: { id: participantId },
+        data: { foodPicksSubmitted: true },
+      }),
     ]);
 
     return NextResponse.json({ ok: true });

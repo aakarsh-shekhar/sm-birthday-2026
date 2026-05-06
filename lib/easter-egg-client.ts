@@ -23,6 +23,15 @@ export function getSessionParticipantId(): string | null {
   }
 }
 
+export function clearSessionParticipantId(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(SESSION_PARTICIPANT_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function getPendingEasterEggs(): EasterEggKey[] {
   if (typeof window === "undefined") return [];
   try {

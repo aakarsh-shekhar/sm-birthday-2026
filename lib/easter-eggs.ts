@@ -52,3 +52,8 @@ const TOAST_LINES: Record<EasterEggKey, string> = {
 export function easterEggToastLine(key: EasterEggKey): string {
   return TOAST_LINES[key];
 }
+
+/** Shown when a guest has found every egg at least once. */
+export function easterEggSeasonFinaleLine(): string {
+  return "You cleared the board — every secret found. The weekend owes you one.";
+}

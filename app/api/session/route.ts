@@ -38,6 +38,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const name = String(body?.name ?? "").trim();
+    const groceryOnly = Boolean(body?.groceryOnly);
 
     if (!name) {
       return NextResponse.json({ error: "Name is required." }, { status: 400 });
@@ -47,7 +48,16 @@ export async function POST(request: Request) {
     await ensureFoodOptions();
 
     const participant = await prisma.participant.create({
-      data: { name },
+      data: {
+        name,
+        ...(groceryOnly
+          ? {
+              skippedToGrocery: true,
+              foodPicksSubmitted: true,
+              swipeReviewCompleted: true,
+            }
+          : {}),
+      },
     });
 
     const activities = await prisma.activity.findMany({

@@ -13,10 +13,18 @@ datasource db {
 }
 
 model Participant {
-  id             String          @id @default(cuid())
-  name           String
-  createdAt      DateTime        @default(now())
-  swipes         Swipe[]
+  id                     String          @id @default(cuid())
+  name                   String
+  createdAt              DateTime        @default(now())
+  /** True after guest confirms swipe review or skipped that path (grocery shortcut). */
+  swipeReviewCompleted   Boolean         @default(false)
+  /** True after POST /api/food-options or grocery-only signup. */
+  foodPicksSubmitted     Boolean         @default(false)
+  /** True after guest taps Finish on grocery step. */
+  flowFinished           Boolean         @default(false)
+  /** True when guest chose grocery-only at signup (skips voting + food UI). */
+  skippedToGrocery       Boolean         @default(false)
+  swipes                 Swipe[]
   foodSelections FoodSelection[]
   groceryNote    GroceryNote?
   groceryItems   GroceryItem[]

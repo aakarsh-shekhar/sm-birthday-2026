@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Great_Vibes } from "next/font/google";
 import {
   FormEvent,
@@ -16,13 +17,21 @@ import {
 import { EasterEggToast, type EasterEggToastPayload } from "@/app/components/EasterEggToast";
 import { JumpscareOverlay, type JumpscareVariant } from "@/app/components/JumpscareOverlay";
 import {
+  clearSessionParticipantId,
   flushPendingEasterEggs,
   getPendingEasterEggs,
+  getSessionParticipantId,
   persistSessionParticipantId,
   queueEasterEgg,
   reportEasterEggToServer,
 } from "@/lib/easter-egg-client";
-import { EASTER_EGG_KEYS, type EasterEggKey, easterEggToastLine } from "@/lib/easter-eggs";
+import {
+  EASTER_EGG_KEYS,
+  type EasterEggKey,
+  easterEggSeasonFinaleLine,
+  easterEggToastLine,
+  isEasterEggKey,
+} from "@/lib/easter-eggs";
 
 type Activity = {
   id: string;
@@ -50,6 +59,22 @@ type GroceryItem = {
 type Reaction = "PASS" | "LIKE" | "SUPERLIKE";
 
 type SessionEntryMode = "full" | "grocery_only";
+
+type ParticipantProgressPayload = {
+  participant: {
+    id: string;
+    name: string;
+    skippedToGrocery: boolean;
+    swipeReviewCompleted: boolean;
+    foodPicksSubmitted: boolean;
+    flowFinished: boolean;
+  };
+  activities: Activity[];
+  swipeIndex: number;
+  phase: "swipe" | "review" | "food" | "grocery" | "finished";
+  swipes: Array<{ activityId: string; reaction: Reaction }>;
+  easterEggKeys: string[];
+};
 
 const greatVibes = Great_Vibes({
   weight: "400",
@@ -145,6 +170,11 @@ export default function Home() {
   const [foodLoadedOnce, setFoodLoadedOnce] = useState(false);
   const [groceryLoadedOnce, setGroceryLoadedOnce] = useState(false);
   const [enteredViaGroceryOnly, setEnteredViaGroceryOnly] = useState(false);
+  const [swipeByActivityId, setSwipeByActivityId] = useState<Record<string, Reaction>>({});
+  const [swipeReviewDone, setSwipeReviewDone] = useState(false);
+  const [reviewSavingActivityId, setReviewSavingActivityId] = useState<string | null>(null);
+  const [resumeLoading, setResumeLoading] = useState(true);
+  const [resumeData, setResumeData] = useState<ParticipantProgressPayload | null>(null);
   const [jumpscare, setJumpscare] = useState<JumpscareVariant | null>(null);
   const flowLaneGroceryShortcutDoneRef = useRef(false);
   const flowRachnaDoneRef = useRef(false);
@@ -205,7 +235,17 @@ export default function Home() {
       const unique = await reportEasterEggToServer(participantId, key);
       if (unique != null) {
         sessionEggsReportedRef.current.add(key);
-        setEggToast({ count: unique, line });
+        const totalEggs = EASTER_EGG_KEYS.length;
+        if (unique >= totalEggs) {
+          setEggToast({
+            count: unique,
+            line,
+            kind: "season_finale",
+            finaleLine: easterEggSeasonFinaleLine(),
+          });
+        } else {
+          setEggToast({ count: unique, line });
+        }
       }
     },
     [participantId],
@@ -240,12 +280,25 @@ export default function Home() {
     }
   }
 
-  const currentActivity = activities[index];
   const total = activities.length;
-  const isSwipingFinished = Boolean(participantId && !currentActivity);
-  const isChoosingFood = isSwipingFinished && !foodStepDone;
-  const isWritingGrocery = isSwipingFinished && foodStepDone && !groceryStepDone;
-  const isFinished = isSwipingFinished && foodStepDone && groceryStepDone;
+  const currentActivity = index < total ? activities[index] : undefined;
+  const isDeckExhausted = Boolean(participantId && index >= total);
+  const showSwipeReview = Boolean(
+    isDeckExhausted &&
+      total > 0 &&
+      !enteredViaGroceryOnly &&
+      !swipeReviewDone &&
+      !foodStepDone,
+  );
+  const isChoosingFood = Boolean(
+    isDeckExhausted &&
+      total > 0 &&
+      swipeReviewDone &&
+      !foodStepDone &&
+      !enteredViaGroceryOnly,
+  );
+  const isWritingGrocery = Boolean(isDeckExhausted && foodStepDone && !groceryStepDone);
+  const isFinished = Boolean(isDeckExhausted && foodStepDone && groceryStepDone);
 
   const progress = useMemo(() => {
     if (!total) return 0;
@@ -269,6 +322,35 @@ export default function Home() {
       persistSessionParticipantId(participantId);
     }
   }, [participantId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const pid = getSessionParticipantId();
+      if (!pid) {
+        setResumeLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `/api/participant-progress?participantId=${encodeURIComponent(pid)}`,
+        );
+        if (cancelled) return;
+        if (!res.ok) {
+          clearSessionParticipantId();
+          setResumeData(null);
+          return;
+        }
+        const data = (await res.json()) as ParticipantProgressPayload;
+        setResumeData(data);
+      } finally {
+        if (!cancelled) setResumeLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (participantId || quoteDwellDoneRef.current) return;
@@ -298,6 +380,81 @@ export default function Home() {
     }
   }, [progress, participantId, total, recordEggFind]);
 
+  async function applyResumeFromPayload(data: ParticipantProgressPayload) {
+    setError(null);
+    setResumeData(null);
+    setIsLoading(true);
+    try {
+      const p = data.participant;
+      const swipeMap: Record<string, Reaction> = {};
+      for (const row of data.swipes) {
+        swipeMap[row.activityId] = row.reaction;
+      }
+      setParticipantId(p.id);
+      setName(p.name);
+      setActivities(data.activities);
+      setIndex(data.swipeIndex);
+      setSwipeByActivityId(swipeMap);
+      setEnteredViaGroceryOnly(p.skippedToGrocery);
+      setSwipeReviewDone(p.swipeReviewCompleted);
+      setFoodStepDone(p.foodPicksSubmitted);
+      setGroceryStepDone(p.flowFinished);
+      setSelectedFoodOptionIds([]);
+      setGroceryItems([]);
+      setGroceryItemInput("");
+      setJumpscare(null);
+      flowLaneGroceryShortcutDoneRef.current = false;
+      flowRachnaDoneRef.current = false;
+      finishCelebrationEggRef.current = false;
+      swipeHalfwayEggRef.current = false;
+
+      switch (data.phase) {
+        case "swipe":
+        case "review":
+        case "food":
+          setFoodLoadedOnce(false);
+          setGroceryLoadedOnce(false);
+          break;
+        case "grocery":
+          setFoodLoadedOnce(true);
+          setGroceryLoadedOnce(false);
+          break;
+        case "finished":
+          setFoodLoadedOnce(true);
+          setGroceryLoadedOnce(true);
+          break;
+        default:
+          break;
+      }
+
+      sessionEggsReportedRef.current = new Set(
+        data.easterEggKeys.filter((k): k is string => isEasterEggKey(k)),
+      );
+
+      const pendingBeforeFlush = getPendingEasterEggs();
+      const finalUnique = await flushPendingEasterEggs(p.id);
+      if (pendingBeforeFlush.length > 0 && finalUnique != null) {
+        pendingBeforeFlush.forEach((eggKey) => {
+          sessionEggsReportedRef.current.add(eggKey);
+        });
+        pendingBeforeFlush.forEach((eggKey, i) => {
+          window.setTimeout(() => {
+            setEggToast({
+              count:
+                i === pendingBeforeFlush.length - 1 ? finalUnique : Math.min(i + 1, EASTER_EGG_KEYS.length),
+              line: easterEggToastLine(eggKey),
+            });
+          }, i * 950);
+        });
+      }
+    } catch (resumeErr) {
+      setError(resumeErr instanceof Error ? resumeErr.message : "Could not restore session.");
+      clearSessionParticipantId();
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   async function startSessionWithMode(mode: SessionEntryMode) {
     setError(null);
 
@@ -312,7 +469,10 @@ export default function Home() {
       const response = await fetch("/api/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({
+          name: name.trim(),
+          groceryOnly: mode === "grocery_only",
+        }),
       });
 
       const data = await parseJsonSafe(response);
@@ -332,6 +492,9 @@ export default function Home() {
       setParticipantId(data.participantId);
       setActivities(activitiesList);
       setEnteredViaGroceryOnly(mode === "grocery_only");
+      setSwipeByActivityId({});
+      setSwipeReviewDone(mode === "grocery_only");
+      setResumeData(null);
       if (mode === "grocery_only") {
         setIndex(activitiesList.length);
         setFoodStepDone(true);
@@ -348,6 +511,8 @@ export default function Home() {
       setJumpscare(null);
       flowLaneGroceryShortcutDoneRef.current = false;
       flowRachnaDoneRef.current = false;
+      finishCelebrationEggRef.current = false;
+      swipeHalfwayEggRef.current = false;
 
       const finalUnique = await flushPendingEasterEggs(data.participantId);
       if (pendingBeforeFlush.length > 0 && finalUnique != null) {
@@ -401,6 +566,7 @@ export default function Home() {
         );
       }
 
+      setSwipeByActivityId((prev) => ({ ...prev, [currentActivity.id]: reaction }));
       setIndex((value) => value + 1);
     } catch (swipeError) {
       setError(swipeError instanceof Error ? swipeError.message : "Something went wrong.");
@@ -551,8 +717,78 @@ export default function Home() {
     }
   }
 
-  function finishGroceryStep() {
-    setGroceryStepDone(true);
+  async function updateSwipeFromReview(activityId: string, reaction: Reaction) {
+    if (!participantId) return;
+    const previous = swipeByActivityId[activityId];
+    if (previous === reaction) return;
+
+    setSwipeByActivityId((s) => ({ ...s, [activityId]: reaction }));
+    setReviewSavingActivityId(activityId);
+    setError(null);
+    try {
+      const response = await fetch("/api/swipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          participantId,
+          activityId,
+          reaction,
+        }),
+      });
+      const data = await parseJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(typeof data?.error === "string" ? data.error : "Could not update vote.");
+      }
+    } catch (swipeErr) {
+      setSwipeByActivityId((s) => ({ ...s, [activityId]: previous }));
+      setError(swipeErr instanceof Error ? swipeErr.message : "Could not update vote.");
+    } finally {
+      setReviewSavingActivityId(null);
+    }
+  }
+
+  async function confirmSwipeReviewContinue() {
+    if (!participantId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/participant/swipe-review-complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantId }),
+      });
+      const data = await parseJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(typeof data?.error === "string" ? data.error : "Could not continue.");
+      }
+      setSwipeReviewDone(true);
+    } catch (reviewErr) {
+      setError(reviewErr instanceof Error ? reviewErr.message : "Could not continue.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function finishGroceryStep() {
+    if (!participantId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/participant/flow-complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantId }),
+      });
+      const data = await parseJsonSafe(response);
+      if (!response.ok) {
+        throw new Error(typeof data?.error === "string" ? data.error : "Could not mark complete.");
+      }
+      setGroceryStepDone(true);
+    } catch (finishErr) {
+      setError(finishErr instanceof Error ? finishErr.message : "Could not mark complete.");
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -727,6 +963,36 @@ export default function Home() {
             onSubmit={startFullSession}
             className="rounded-3xl border border-white/20 bg-slate-900/75 p-7 shadow-[0_20px_60px_rgba(2,6,23,0.55)] backdrop-blur"
           >
+            {!resumeLoading && resumeData ? (
+              <div className="mb-6 rounded-2xl border border-sky-400/45 bg-sky-950/50 p-5 text-left">
+                <p className="text-sm font-semibold text-sky-100">Pick up where you left off?</p>
+                <p className="mt-1 text-sm text-slate-300">
+                  You have a saved session as{" "}
+                  <span className="font-medium text-white">{resumeData.participant.name}</span>.
+                </p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:gap-3">
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => void applyResumeFromPayload(resumeData)}
+                    className="rounded-lg bg-sky-500 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-sky-400 disabled:opacity-50"
+                  >
+                    Resume
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => {
+                      clearSessionParticipantId();
+                      setResumeData(null);
+                    }}
+                    className="rounded-lg border border-white/25 px-4 py-2.5 text-sm font-semibold text-slate-100 hover:bg-white/10 disabled:opacity-50"
+                  >
+                    Start fresh
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-200">
               Your turn
             </p>
@@ -811,12 +1077,24 @@ export default function Home() {
             Thanks {name.trim() || "there"} - your picks are now part of Sumeet Mama&apos;s final
             celebration plan.
           </p>
-          <a
-            href="/admin"
-            className="mt-5 inline-block rounded-lg border border-amber-300/40 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-200"
-          >
-            Open admin dashboard
-          </a>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                clearSessionParticipantId();
+                window.location.assign("/");
+              }}
+              className="inline-block rounded-lg border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/15"
+            >
+              ← Guest home
+            </button>
+            <Link
+              href="/admin"
+              className="inline-block rounded-lg border border-amber-300/40 bg-amber-400/10 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-400/15"
+            >
+              Admin dashboard →
+            </Link>
+          </div>
         </section>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 overflow-hidden">
@@ -853,6 +1131,63 @@ export default function Home() {
           }
         `}</style>
       </main>
+      </>
+    );
+  }
+
+  if (showSwipeReview) {
+    return (
+      <>
+        <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
+          <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
+            <h2 className={`text-3xl text-amber-300 ${greatVibes.className}`}>Review your picks</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Pick Pass, Like, or Superlike from each row before food picks, or continue when you are
+              happy with the list.
+            </p>
+            <ul className="mt-4 max-h-[min(52vh,420px)] space-y-2 overflow-y-auto pr-1">
+              {activities.map((act) => {
+                const r = swipeByActivityId[act.id];
+                const saving = reviewSavingActivityId === act.id;
+                return (
+                  <li
+                    key={act.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2.5 text-sm"
+                  >
+                    <span className="min-w-0 flex-1 font-medium text-slate-100">{act.title}</span>
+                    <label className="sr-only" htmlFor={`review-vote-${act.id}`}>
+                      Vote for {act.title}
+                    </label>
+                    <select
+                      id={`review-vote-${act.id}`}
+                      value={r ?? "LIKE"}
+                      disabled={saving}
+                      onChange={(event) => {
+                        const next = event.target.value as Reaction;
+                        void updateSwipeFromReview(act.id, next);
+                      }}
+                      className="max-w-[11rem] shrink-0 rounded-md border border-white/25 bg-slate-950/80 px-2 py-1.5 text-xs font-semibold text-slate-100 outline-none focus:border-amber-400 disabled:opacity-50 sm:text-sm"
+                    >
+                      <option value="PASS">Pass</option>
+                      <option value="LIKE">Like</option>
+                      <option value="SUPERLIKE">Superlike</option>
+                    </select>
+                  </li>
+                );
+              })}
+            </ul>
+            <button
+              type="button"
+              disabled={isLoading || reviewSavingActivityId !== null}
+              onClick={() => void confirmSwipeReviewContinue()}
+              className="mt-5 w-full rounded-lg bg-amber-400 px-4 py-2.5 font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-50"
+            >
+              {isLoading ? "Saving..." : "Continue to food picks"}
+            </button>
+            {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
+          </section>
+        </main>
       </>
     );
   }
@@ -989,10 +1324,12 @@ export default function Home() {
             </button>
           </div>
           <button
-            onClick={finishGroceryStep}
-            className="mt-5 w-full rounded-lg bg-amber-400 px-4 py-2 font-semibold text-slate-950"
+            type="button"
+            onClick={() => void finishGroceryStep()}
+            disabled={isLoading}
+            className="mt-5 w-full rounded-lg bg-amber-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
           >
-            Finish
+            {isLoading ? "Saving..." : "Finish"}
           </button>
           {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
         </section>
