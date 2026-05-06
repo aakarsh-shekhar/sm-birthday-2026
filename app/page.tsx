@@ -537,6 +537,29 @@ export default function Home() {
         : touchDelta.y < -20
           ? "Release to Superlike"
           : "Swipe: left pass, right like, up superlike";
+
+  const swipeStamp = useMemo(() => {
+    if (!touchStart || isLoading || !currentActivity) {
+      return { kind: null as "pass" | "like" | "superlike" | null, opacity: 0 };
+    }
+    const dx = touchDelta.x;
+    const dy = touchDelta.y;
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    const min = 16;
+    if (ax < min && ay < min) {
+      return { kind: null, opacity: 0 };
+    }
+    const fade = (v: number) => Math.min(1, Math.max(0, (v - min) / 88));
+
+    if (ax >= ay) {
+      if (dx > min) return { kind: "like" as const, opacity: fade(ax) };
+      if (dx < -min) return { kind: "pass" as const, opacity: fade(ax) };
+    } else if (dy < -min) {
+      return { kind: "superlike" as const, opacity: fade(ay) };
+    }
+    return { kind: null, opacity: 0 };
+  }, [touchDelta.x, touchDelta.y, touchStart, isLoading, currentActivity]);
   const activityDescription = formatDescription(currentActivity?.description ?? null);
   const activityHost = getHostFromUrl(currentActivity?.activityUrl ?? null);
   const activityImageUrl = normalizeImagePath(currentActivity?.imageUrl ?? null);
@@ -941,10 +964,56 @@ export default function Home() {
               onTouchStart={onCardTouchStart}
               onTouchMove={onCardTouchMove}
               onTouchEnd={onCardTouchEnd}
+              onTouchCancel={() => {
+                setTouchStart(null);
+                setTouchDelta({ x: 0, y: 0 });
+              }}
               style={{
-                transform: `translate(${touchDelta.x * 0.18}px, ${touchDelta.y * 0.18}px)`,
+                transform: `translate(${touchDelta.x * 0.18}px, ${touchDelta.y * 0.18}px) rotate(${touchDelta.x * 0.035}deg)`,
               }}
             >
+              {swipeStamp.kind === "pass" ? (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute left-2 top-[22%] z-20 flex w-[46%] items-start justify-start sm:left-4 sm:top-1/4"
+                  style={{ opacity: swipeStamp.opacity }}
+                >
+                  <span className="inline-block rotate-[-14deg] rounded-md border-[3px] border-rose-500/55 px-3 py-1.5 text-3xl font-black uppercase tracking-wide text-rose-100/95 drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] sm:text-4xl">
+                    Pass
+                  </span>
+                </div>
+              ) : null}
+              {swipeStamp.kind === "like" ? (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute right-2 top-[22%] z-20 flex w-[46%] items-start justify-end sm:right-4 sm:top-1/4"
+                  style={{ opacity: swipeStamp.opacity }}
+                >
+                  <span className="inline-block rotate-[14deg] rounded-md border-[3px] border-emerald-500/55 px-3 py-1.5 text-3xl font-black uppercase tracking-wide text-emerald-100/95 drop-shadow-[0_2px_12px_rgba(0,0,0,0.5)] sm:text-4xl">
+                    Like
+                  </span>
+                </div>
+              ) : null}
+              {swipeStamp.kind === "superlike" ? (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 top-5 z-20 flex justify-center px-3 sm:top-7"
+                  style={{ opacity: swipeStamp.opacity }}
+                >
+                  <div className="relative max-w-[92%] rounded-2xl border border-sky-400/60 bg-gradient-to-br from-sky-500/30 via-indigo-600/25 to-sky-400/30 px-5 py-3 text-center shadow-[0_0_40px_rgba(56,189,248,0.28)] ring-1 ring-sky-300/40 backdrop-blur-[2px]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.35em] text-sky-100/90">
+                      ★ super vote ★
+                    </p>
+                    <p className="mt-1 bg-gradient-to-r from-cyan-200 via-sky-100 to-indigo-200 bg-clip-text text-2xl font-black uppercase tracking-[0.12em] text-transparent drop-shadow-sm sm:text-3xl">
+                      Spark pick
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-medium text-sky-200/75">
+                      Reserve your loudest yes
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="relative shrink-0">
                 {activityImageUrl ? (
                   <>
