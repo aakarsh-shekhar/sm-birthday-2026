@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Great_Vibes } from "next/font/google";
 import {
   FormEvent,
-  TouchEvent,
+  type PointerEvent,
   type UIEvent,
   useCallback,
   useEffect,
@@ -160,8 +160,10 @@ export default function Home() {
   const [index, setIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [swipeStart, setSwipeStart] = useState<{ x: number; y: number } | null>(null);
   const [touchDelta, setTouchDelta] = useState({ x: 0, y: 0 });
+  const [isDraggingCard, setIsDraggingCard] = useState(false);
+  const swipeDeltaRef = useRef({ x: 0, y: 0 });
   const [foodOptions, setFoodOptions] = useState<FoodOption[]>([]);
   const [selectedFoodOptionIds, setSelectedFoodOptionIds] = useState<string[]>([]);
   const [foodStepDone, setFoodStepDone] = useState(false);
@@ -562,48 +564,82 @@ export default function Home() {
     }
   }
 
-  function onCardTouchStart(event: TouchEvent<HTMLDivElement>) {
-    if (isLoading || !currentActivity) return;
-    const touch = event.touches[0];
-    setTouchStart({ x: touch.clientX, y: touch.clientY });
+  function beginCardSwipe(x: number, y: number) {
+    setSwipeStart({ x, y });
+    swipeDeltaRef.current = { x: 0, y: 0 };
+    setTouchDelta({ x: 0, y: 0 });
+    setIsDraggingCard(true);
   }
 
-  function onCardTouchMove(event: TouchEvent<HTMLDivElement>) {
-    if (!touchStart || isLoading || !currentActivity) return;
-    const touch = event.touches[0];
-    setTouchDelta({
-      x: touch.clientX - touchStart.x,
-      y: touch.clientY - touchStart.y,
-    });
+  function updateCardSwipe(x: number, y: number) {
+    if (!swipeStart || isLoading || !currentActivity) return;
+    const nextDelta = {
+      x: x - swipeStart.x,
+      y: y - swipeStart.y,
+    };
+    swipeDeltaRef.current = nextDelta;
+    setTouchDelta(nextDelta);
   }
 
-  async function onCardTouchEnd() {
-    if (!touchStart || isLoading || !currentActivity) {
-      setTouchStart(null);
+  async function endCardSwipe() {
+    if (!swipeStart || isLoading || !currentActivity) {
+      setSwipeStart(null);
       setTouchDelta({ x: 0, y: 0 });
+      setIsDraggingCard(false);
       return;
     }
 
-    const absX = Math.abs(touchDelta.x);
-    const absY = Math.abs(touchDelta.y);
+    const delta = swipeDeltaRef.current;
+    const absX = Math.abs(delta.x);
+    const absY = Math.abs(delta.y);
     const threshold = 70;
 
     let reaction: Reaction | null = null;
 
     if (absX > absY && absX >= threshold) {
-      reaction = touchDelta.x > 0 ? "LIKE" : "PASS";
-    } else if (touchDelta.y < 0 && absY >= threshold) {
+      reaction = delta.x > 0 ? "LIKE" : "PASS";
+    } else if (delta.y < 0 && absY >= threshold) {
       reaction = "SUPERLIKE";
-    } else if (touchDelta.y > 0 && absY >= threshold && absY >= absX) {
+    } else if (delta.y > 0 && absY >= threshold && absY >= absX) {
       void recordEggFind("card_down_swipe");
     }
 
-    setTouchStart(null);
+    setSwipeStart(null);
+    swipeDeltaRef.current = { x: 0, y: 0 };
     setTouchDelta({ x: 0, y: 0 });
+    setIsDraggingCard(false);
 
     if (reaction) {
       await submitReaction(reaction);
     }
+  }
+
+  function onCardPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (isLoading || !currentActivity) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    beginCardSwipe(event.clientX, event.clientY);
+  }
+
+  function onCardPointerMove(event: PointerEvent<HTMLDivElement>) {
+    updateCardSwipe(event.clientX, event.clientY);
+  }
+
+  function onCardPointerUp(event: PointerEvent<HTMLDivElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    void endCardSwipe();
+  }
+
+  function onCardPointerCancel(event: PointerEvent<HTMLDivElement>) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setSwipeStart(null);
+    swipeDeltaRef.current = { x: 0, y: 0 };
+    setTouchDelta({ x: 0, y: 0 });
+    setIsDraggingCard(false);
   }
 
   const loadFoodOptions = useCallback(async () => {
@@ -811,7 +847,7 @@ export default function Home() {
           : "Swipe: left pass, right like, up superlike";
 
   const swipeStamp = useMemo(() => {
-    if (!touchStart || isLoading || !currentActivity) {
+    if (!swipeStart || isLoading || !currentActivity) {
       return { kind: null as "pass" | "like" | "superlike" | null, opacity: 0 };
     }
     const dx = touchDelta.x;
@@ -831,7 +867,7 @@ export default function Home() {
       return { kind: "superlike" as const, opacity: fade(ay) };
     }
     return { kind: null, opacity: 0 };
-  }, [touchDelta.x, touchDelta.y, touchStart, isLoading, currentActivity]);
+  }, [touchDelta.x, touchDelta.y, swipeStart, isLoading, currentActivity]);
   const activityDescription = formatDescription(currentActivity?.description ?? null);
   const activityHost = getHostFromUrl(currentActivity?.activityUrl ?? null);
   const activityImageUrl = normalizeImagePath(currentActivity?.imageUrl ?? null);
@@ -1406,16 +1442,15 @@ export default function Home() {
             </div>
 
             <div
-              className="relative flex min-h-0 flex-1 touch-pan-y select-none flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-900 shadow-[0_10px_30px_rgba(2,6,23,0.45)] transition-transform"
-              onTouchStart={onCardTouchStart}
-              onTouchMove={onCardTouchMove}
-              onTouchEnd={onCardTouchEnd}
-              onTouchCancel={() => {
-                setTouchStart(null);
-                setTouchDelta({ x: 0, y: 0 });
-              }}
+              className={`relative flex min-h-0 flex-1 touch-none select-none flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-900 shadow-[0_10px_30px_rgba(2,6,23,0.45)] ${
+                isDraggingCard ? "" : "transition-transform duration-200 ease-out"
+              }`}
+              onPointerDown={onCardPointerDown}
+              onPointerMove={onCardPointerMove}
+              onPointerUp={onCardPointerUp}
+              onPointerCancel={onCardPointerCancel}
               style={{
-                transform: `translate(${touchDelta.x * 0.18}px, ${touchDelta.y * 0.18}px) rotate(${touchDelta.x * 0.035}deg)`,
+                transform: `translate(${touchDelta.x * 0.35}px, ${touchDelta.y * 0.24}px) rotate(${touchDelta.x * 0.06}deg)`,
               }}
             >
               {swipeStamp.kind === "pass" ? (
