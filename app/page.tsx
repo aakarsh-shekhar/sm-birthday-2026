@@ -214,8 +214,12 @@ export default function Home() {
   const landingDeepDoneRef = useRef(false);
   const finishCelebrationEggRef = useRef(false);
   const [eggToast, setEggToast] = useState<EasterEggToastPayload>(null);
+  const [foundEggKeys, setFoundEggKeys] = useState<EasterEggKey[]>([]);
 
   const dismissEggToast = useCallback(() => setEggToast(null), []);
+  const markEggFound = useCallback((key: EasterEggKey) => {
+    setFoundEggKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
+  }, []);
 
   const dismissJumpscare = useCallback(() => {
     setJumpscare((current) => {
@@ -232,6 +236,7 @@ export default function Home() {
       const line = easterEggToastLine(key);
       if (!participantId) {
         if (!queueEasterEgg(key)) return;
+        markEggFound(key);
         const n = getPendingEasterEggs().length;
         setEggToast({ count: n, line });
         return;
@@ -240,10 +245,11 @@ export default function Home() {
       const unique = await reportEasterEggToServer(participantId, key);
       if (unique != null) {
         sessionEggsReportedRef.current.add(key);
+        markEggFound(key);
         setEggToast({ count: unique, line });
       }
     },
-    [participantId],
+    [markEggFound, participantId],
   );
 
   function triggerDogPortraitEgg() {
@@ -421,6 +427,7 @@ export default function Home() {
       sessionEggsReportedRef.current = new Set(
         data.easterEggKeys.filter((k): k is string => isEasterEggKey(k)),
       );
+      setFoundEggKeys(data.easterEggKeys.filter((k): k is EasterEggKey => isEasterEggKey(k)));
 
       const pendingBeforeFlush = getPendingEasterEggs();
       const finalUnique = await flushPendingEasterEggs(p.id);
@@ -428,6 +435,7 @@ export default function Home() {
         for (const eggKey of pendingBeforeFlush) {
           sessionEggsReportedRef.current.add(eggKey);
         }
+        setFoundEggKeys((prev) => [...new Set([...prev, ...pendingBeforeFlush])]);
       }
     } catch (resumeErr) {
       setError(resumeErr instanceof Error ? resumeErr.message : "Could not restore session.");
@@ -495,6 +503,7 @@ export default function Home() {
       flowLaneGroceryShortcutDoneRef.current = false;
       flowRachnaDoneRef.current = false;
       finishCelebrationEggRef.current = false;
+      setFoundEggKeys(pendingBeforeFlush);
 
       sessionEggsReportedRef.current = new Set();
       const finalUnique = await flushPendingEasterEggs(data.participantId);
@@ -502,6 +511,7 @@ export default function Home() {
         for (const eggKey of pendingBeforeFlush) {
           sessionEggsReportedRef.current.add(eggKey);
         }
+        setFoundEggKeys((prev) => [...new Set([...prev, ...pendingBeforeFlush])]);
       }
     } catch (sessionError) {
       setError(
@@ -850,6 +860,7 @@ export default function Home() {
         <FloatingMysteryBox
           theme="dark"
           candidateEggs={["legacy_line", "dog_double_tap", "quote_dwell", "landing_deep_scroll"]}
+          foundEggs={foundEggKeys}
         />
         <main
         onScroll={onLandingScroll}
@@ -1072,7 +1083,11 @@ export default function Home() {
     return (
       <>
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
-        <FloatingMysteryBox theme="dark" candidateEggs={["finish_celebration", "admin_detour"]} />
+        <FloatingMysteryBox
+          theme="dark"
+          candidateEggs={["finish_celebration", "admin_detour"]}
+          foundEggs={foundEggKeys}
+        />
         <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 text-slate-100">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.18),_transparent_55%)]" />
         <section className="relative z-10 w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-8 text-center shadow-[0_24px_80px_rgba(2,6,23,0.6)] backdrop-blur">
@@ -1144,7 +1159,11 @@ export default function Home() {
     return (
       <>
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
-        <FloatingMysteryBox theme="dark" candidateEggs={["swipe_halfway"]} />
+        <FloatingMysteryBox
+          theme="dark"
+          candidateEggs={["swipe_halfway"]}
+          foundEggs={foundEggKeys}
+        />
         <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
           <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
             <h2 className={`text-3xl text-amber-300 ${greatVibes.className}`}>Review your picks</h2>
@@ -1202,7 +1221,11 @@ export default function Home() {
     return (
       <>
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
-        <FloatingMysteryBox theme="dark" candidateEggs={["food_title_triple"]} />
+        <FloatingMysteryBox
+          theme="dark"
+          candidateEggs={["food_title_triple"]}
+          foundEggs={foundEggKeys}
+        />
         <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
         <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
           <button
@@ -1288,7 +1311,11 @@ export default function Home() {
           autoDismissMs={FLOW_JUMPSCARE_AUTO_MS}
         />
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
-        <FloatingMysteryBox theme="dark" candidateEggs={["grocery_sparkles"]} />
+        <FloatingMysteryBox
+          theme="dark"
+          candidateEggs={["grocery_sparkles"]}
+          foundEggs={foundEggKeys}
+        />
         <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
         <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
           <p className={`text-4xl text-amber-300 ${greatVibes.className}`}>Grocery List</p>
@@ -1349,7 +1376,11 @@ export default function Home() {
   return (
     <>
       <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
-      <FloatingMysteryBox theme="dark" candidateEggs={["card_down_swipe", "swipe_halfway"]} />
+      <FloatingMysteryBox
+        theme="dark"
+        candidateEggs={["card_down_swipe", "swipe_halfway"]}
+        foundEggs={foundEggKeys}
+      />
     <main
       className="fixed inset-0 flex h-[100dvh] flex-col overflow-hidden bg-slate-950 text-slate-100"
       style={{

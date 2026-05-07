@@ -10,21 +10,28 @@ function uniqEggs(keys: EasterEggKey[]): EasterEggKey[] {
 
 type FloatingMysteryBoxProps = {
   candidateEggs: EasterEggKey[];
+  foundEggs?: EasterEggKey[];
   /** Guest flows are dark; admin shell is light. */
   theme?: "dark" | "light";
 };
 
-export function FloatingMysteryBox({ candidateEggs, theme = "dark" }: FloatingMysteryBoxProps) {
+export function FloatingMysteryBox({
+  candidateEggs,
+  foundEggs = [],
+  theme = "dark",
+}: FloatingMysteryBoxProps) {
   const keys = uniqEggs(candidateEggs);
+  const found = new Set(foundEggs);
+  const unresolvedKeys = keys.filter((key) => !found.has(key));
   const [hintOpen, setHintOpen] = useState(false);
   const [hintText, setHintText] = useState("");
 
   const openHint = useCallback(() => {
-    if (keys.length === 0) return;
-    const pick = keys[Math.floor(Math.random() * keys.length)]!;
+    if (unresolvedKeys.length === 0) return;
+    const pick = unresolvedKeys[Math.floor(Math.random() * unresolvedKeys.length)]!;
     setHintText(easterEggMysteryHint(pick));
     setHintOpen(true);
-  }, [keys]);
+  }, [unresolvedKeys]);
 
   useEffect(() => {
     if (!hintOpen) return;
@@ -44,7 +51,13 @@ export function FloatingMysteryBox({ candidateEggs, theme = "dark" }: FloatingMy
     };
   }, [hintOpen]);
 
-  if (keys.length === 0) return null;
+  useEffect(() => {
+    if (unresolvedKeys.length === 0) {
+      setHintOpen(false);
+    }
+  }, [unresolvedKeys.length]);
+
+  if (unresolvedKeys.length === 0) return null;
 
   const btnClass =
     theme === "light"
