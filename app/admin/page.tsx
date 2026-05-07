@@ -74,11 +74,23 @@ export default function AdminPage() {
       .sort((a, b) => a.localeCompare(b));
   }
 
+  /** Likes and superlikes in one list; superlikes prefixed with ★ for CSV / text export. */
+  function likesAndSuperlikesDisplay(activity: DashboardActivity): string {
+    const entries = activity.swipes
+      .filter((s) => s.reaction === "LIKE" || s.reaction === "SUPERLIKE")
+      .map((s) => ({
+        sortKey: s.participant.name.toLowerCase(),
+        label: s.reaction === "SUPERLIKE" ? `★ ${s.participant.name}` : s.participant.name,
+      }))
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+    if (entries.length === 0) return "—";
+    return entries.map((e) => e.label).join("; ");
+  }
+
   const exportPlainText = useMemo(() => {
-    const superLines = ["SUPERLIKES BY ACTIVITY", ""];
+    const voteLines = ["LIKES & SUPERLIKES BY ACTIVITY (★ = superlike)", ""];
     for (const a of activities) {
-      const names = reactionNames(a, "SUPERLIKE");
-      superLines.push(`${a.title}: ${names.length ? names.join(", ") : "—"}`);
+      voteLines.push(`${a.title}: ${likesAndSuperlikesDisplay(a)}`);
     }
     const groceryLines = ["", "GROCERY LIST", ""];
     if (groceryItems.length === 0) {
@@ -88,24 +100,40 @@ export default function AdminPage() {
         groceryLines.push(`${g.item} (${g.participant.name})`);
       }
     }
-    return [...superLines, ...groceryLines].join("\n");
-  }, [activities, groceryItems]);
+    const foodLines = ["", "FOOD SELECTIONS BY GUEST", ""];
+    const sortedParticipants = [...participants].sort((a, b) => a.name.localeCompare(b.name));
+    for (const p of sortedParticipants) {
+      const titles = p.foodSelections
+        .map((s) => s.foodOption.title)
+        .sort((a, b) => a.localeCompare(b));
+      foodLines.push(`${p.name}: ${titles.length ? titles.join(", ") : "—"}`);
+    }
+    return [...voteLines, ...groceryLines, ...foodLines].join("\n");
+  }, [activities, groceryItems, participants]);
 
   const exportCsv = useMemo(() => {
     const esc = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
     const rows: string[] = [];
-    rows.push(`${esc("Activity")},${esc("Superlikes")}`);
+    rows.push(`${esc("Activity")},${esc("Likes & superlikes (★ = superlike)")}`);
     for (const a of activities) {
-      const names = reactionNames(a, "SUPERLIKE");
-      rows.push(`${esc(a.title)},${esc(names.length ? names.join("; ") : "—")}`);
+      rows.push(`${esc(a.title)},${esc(likesAndSuperlikesDisplay(a))}`);
     }
     rows.push("");
     rows.push(`${esc("Grocery item")},${esc("Added by")}`);
     for (const g of groceryItems) {
       rows.push(`${esc(g.item)},${esc(g.participant.name)}`);
     }
+    rows.push("");
+    rows.push(`${esc("Participant")},${esc("Food selections")}`);
+    const sortedParticipants = [...participants].sort((a, b) => a.name.localeCompare(b.name));
+    for (const p of sortedParticipants) {
+      const titles = p.foodSelections
+        .map((s) => s.foodOption.title)
+        .sort((a, b) => a.localeCompare(b));
+      rows.push(`${esc(p.name)},${esc(titles.length ? titles.join("; ") : "—")}`);
+    }
     return rows.join("\n");
-  }, [activities, groceryItems]);
+  }, [activities, groceryItems, participants]);
 
   async function copyExportBlock() {
     setExportMessage(null);
@@ -176,7 +204,8 @@ export default function AdminPage() {
         if (b.count !== a.count) return b.count - a.count;
         return a.name.localeCompare(b.name);
       })
-      .map((row, index) => ({ ...row, rank: index + 1 }));
+      .map((row, index) => ({ ...row, rank: index + 1 }))
+      .slice(0, 3);
   }, [participants]);
 
   return (
@@ -202,7 +231,8 @@ export default function AdminPage() {
         <section className="mt-8 rounded-2xl border border-slate-300 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Export for WhatsApp / Sheets</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Superlikes by activity plus the shared grocery list — copy as text or download CSV.
+            Likes and superlikes per activity (★ marks a superlike), grocery list, and each guest&apos;s
+            food picks — copy as text or download CSV.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
@@ -238,13 +268,15 @@ export default function AdminPage() {
                 Easter eggs
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-slate-600">
-                Leaderboard by unique finds, then per-person list (
+                Top 3 by unique finds, then the full per-person list (
                 {EASTER_EGG_KEYS.length} possible). Guests can trigger hidden interactions across the app.
               </p>
             </div>
 
             <div className="border-b border-slate-200 bg-white px-0">
-              <p className="px-5 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Standings</p>
+              <p className="px-5 pt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Standings (top 3)
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[min(100%,480px)] text-left text-sm">
                   <thead className="border-b border-slate-200 bg-white/80 text-xs font-semibold uppercase tracking-wide text-slate-500">

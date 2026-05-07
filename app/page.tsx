@@ -26,10 +26,9 @@ import {
   reportEasterEggToServer,
 } from "@/lib/easter-egg-client";
 import {
-  EASTER_EGG_KEYS,
   type EasterEggKey,
-  easterEggSeasonFinaleLine,
   easterEggToastLine,
+  groceryItemMentionsAlcohol,
   isEasterEggKey,
 } from "@/lib/easter-eggs";
 
@@ -81,8 +80,11 @@ const greatVibes = Great_Vibes({
   subsets: ["latin"],
 });
 
-/** Time guest must keep the quote bar in view (cumulative) on pre-name landing. */
-const QUOTE_DWELL_MS = 10_000;
+/** Snap section index (0-based): quote-dwell egg only counts on this screen (page 1, hero). */
+const QUOTE_DWELL_SECTION_INDEX = 0;
+
+/** Consecutive time on that section while the quote bar is visible (pre-name landing). */
+const QUOTE_DWELL_MS = 4_000;
 
 /** Full-screen interstitials advance on tap or after this delay (normal flow, not hidden triggers). */
 const FLOW_JUMPSCARE_AUTO_MS = 1800;
@@ -184,6 +186,7 @@ export default function Home() {
   const [landingQuoteFadeIn, setLandingQuoteFadeIn] = useState(true);
   const landingQuoteTargetRef = useRef(landingQuoteIndex);
   landingQuoteTargetRef.current = landingQuoteIndex;
+  const [landingWhisperRevealed, setLandingWhisperRevealed] = useState(false);
 
   useEffect(() => {
     if (landingQuoteIndex === landingQuoteDisplayIndex) {
@@ -205,9 +208,10 @@ export default function Home() {
   const foodTitleTapRef = useRef({ count: 0, at: 0 });
   const quoteDwellAccumRef = useRef(0);
   const quoteDwellDoneRef = useRef(false);
+  const landingQuoteIndexRef = useRef(landingQuoteIndex);
+  landingQuoteIndexRef.current = landingQuoteIndex;
   const landingDeepDoneRef = useRef(false);
   const finishCelebrationEggRef = useRef(false);
-  const swipeHalfwayEggRef = useRef(false);
   const [eggToast, setEggToast] = useState<EasterEggToastPayload>(null);
 
   const dismissEggToast = useCallback(() => setEggToast(null), []);
@@ -235,17 +239,7 @@ export default function Home() {
       const unique = await reportEasterEggToServer(participantId, key);
       if (unique != null) {
         sessionEggsReportedRef.current.add(key);
-        const totalEggs = EASTER_EGG_KEYS.length;
-        if (unique >= totalEggs) {
-          setEggToast({
-            count: unique,
-            line,
-            kind: "season_finale",
-            finaleLine: easterEggSeasonFinaleLine(),
-          });
-        } else {
-          setEggToast({ count: unique, line });
-        }
+        setEggToast({ count: unique, line });
       }
     },
     [participantId],
@@ -274,7 +268,7 @@ export default function Home() {
     }
     foodTitleTapRef.current.count += 1;
     foodTitleTapRef.current.at = now;
-    if (foodTitleTapRef.current.count >= 3) {
+    if (foodTitleTapRef.current.count >= 2) {
       foodTitleTapRef.current.count = 0;
       void recordEggFind("food_title_triple");
     }
@@ -357,6 +351,10 @@ export default function Home() {
     if (!landingQuoteVisible) return;
     const tickMs = 500;
     const id = window.setInterval(() => {
+      if (landingQuoteIndexRef.current !== QUOTE_DWELL_SECTION_INDEX) {
+        quoteDwellAccumRef.current = 0;
+        return;
+      }
       quoteDwellAccumRef.current += tickMs;
       if (quoteDwellAccumRef.current >= QUOTE_DWELL_MS && !quoteDwellDoneRef.current) {
         quoteDwellDoneRef.current = true;
@@ -364,7 +362,7 @@ export default function Home() {
       }
     }, tickMs);
     return () => window.clearInterval(id);
-  }, [landingQuoteVisible, participantId, recordEggFind]);
+  }, [landingQuoteVisible, landingQuoteIndex, participantId, recordEggFind]);
 
   useEffect(() => {
     if (!isFinished || finishCelebrationEggRef.current) return;
@@ -372,17 +370,10 @@ export default function Home() {
     void recordEggFind("finish_celebration");
   }, [isFinished, recordEggFind]);
 
-  useEffect(() => {
-    if (!participantId || total < 2 || swipeHalfwayEggRef.current) return;
-    if (progress >= 50) {
-      swipeHalfwayEggRef.current = true;
-      void recordEggFind("swipe_halfway");
-    }
-  }, [progress, participantId, total, recordEggFind]);
-
   async function applyResumeFromPayload(data: ParticipantProgressPayload) {
     setError(null);
     setResumeData(null);
+    setLandingWhisperRevealed(false);
     setIsLoading(true);
     try {
       const p = data.participant;
@@ -406,7 +397,6 @@ export default function Home() {
       flowLaneGroceryShortcutDoneRef.current = false;
       flowRachnaDoneRef.current = false;
       finishCelebrationEggRef.current = false;
-      swipeHalfwayEggRef.current = false;
 
       switch (data.phase) {
         case "swipe":
@@ -434,18 +424,9 @@ export default function Home() {
       const pendingBeforeFlush = getPendingEasterEggs();
       const finalUnique = await flushPendingEasterEggs(p.id);
       if (pendingBeforeFlush.length > 0 && finalUnique != null) {
-        pendingBeforeFlush.forEach((eggKey) => {
+        for (const eggKey of pendingBeforeFlush) {
           sessionEggsReportedRef.current.add(eggKey);
-        });
-        pendingBeforeFlush.forEach((eggKey, i) => {
-          window.setTimeout(() => {
-            setEggToast({
-              count:
-                i === pendingBeforeFlush.length - 1 ? finalUnique : Math.min(i + 1, EASTER_EGG_KEYS.length),
-              line: easterEggToastLine(eggKey),
-            });
-          }, i * 950);
-        });
+        }
       }
     } catch (resumeErr) {
       setError(resumeErr instanceof Error ? resumeErr.message : "Could not restore session.");
@@ -495,6 +476,7 @@ export default function Home() {
       setSwipeByActivityId({});
       setSwipeReviewDone(mode === "grocery_only");
       setResumeData(null);
+      setLandingWhisperRevealed(false);
       if (mode === "grocery_only") {
         setIndex(activitiesList.length);
         setFoodStepDone(true);
@@ -512,22 +494,13 @@ export default function Home() {
       flowLaneGroceryShortcutDoneRef.current = false;
       flowRachnaDoneRef.current = false;
       finishCelebrationEggRef.current = false;
-      swipeHalfwayEggRef.current = false;
 
+      sessionEggsReportedRef.current = new Set();
       const finalUnique = await flushPendingEasterEggs(data.participantId);
       if (pendingBeforeFlush.length > 0 && finalUnique != null) {
-        pendingBeforeFlush.forEach((eggKey) => {
+        for (const eggKey of pendingBeforeFlush) {
           sessionEggsReportedRef.current.add(eggKey);
-        });
-        pendingBeforeFlush.forEach((eggKey, i) => {
-          window.setTimeout(() => {
-            setEggToast({
-              count:
-                i === pendingBeforeFlush.length - 1 ? finalUnique : Math.min(i + 1, EASTER_EGG_KEYS.length),
-              line: easterEggToastLine(eggKey),
-            });
-          }, i * 950);
-        });
+        }
       }
     } catch (sessionError) {
       setError(
@@ -568,6 +541,9 @@ export default function Home() {
 
       setSwipeByActivityId((prev) => ({ ...prev, [currentActivity.id]: reaction }));
       setIndex((value) => value + 1);
+      if (reaction === "SUPERLIKE") {
+        void recordEggFind("swipe_halfway");
+      }
     } catch (swipeError) {
       setError(swipeError instanceof Error ? swipeError.message : "Something went wrong.");
     } finally {
@@ -705,7 +681,7 @@ export default function Home() {
       if (!response.ok) {
         throw new Error(typeof data?.error === "string" ? data.error : "Could not add grocery item.");
       }
-      if (item.toLowerCase() === "sparkles") {
+      if (groceryItemMentionsAlcohol(item)) {
         void recordEggFind("grocery_sparkles");
       }
       setGroceryItemInput("");
@@ -738,6 +714,9 @@ export default function Home() {
       const data = await parseJsonSafe(response);
       if (!response.ok) {
         throw new Error(typeof data?.error === "string" ? data.error : "Could not update vote.");
+      }
+      if (reaction === "SUPERLIKE") {
+        void recordEggFind("swipe_halfway");
       }
     } catch (swipeErr) {
       setSwipeByActivityId((s) => ({ ...s, [activityId]: previous }));
@@ -893,6 +872,25 @@ export default function Home() {
             A curated trip plan and a shared toast to someone who means the world to this crew.
             Scroll when you are ready to add your voice to the weekend.
           </p>
+          <button
+            type="button"
+            onClick={() => setLandingWhisperRevealed(true)}
+            aria-label="Mystery box — tap for a quiet hint"
+            className="mt-8 flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-amber-400/30 bg-slate-900/55 text-base font-medium text-amber-200/75 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ring-1 ring-white/8 transition hover:border-amber-300/50 hover:text-amber-100/95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400/70"
+          >
+            <span aria-hidden className="select-none">
+              ?
+            </span>
+          </button>
+          {landingWhisperRevealed ? (
+            <p
+              role="note"
+              className="mt-4 max-w-lg text-center text-xs leading-snug text-slate-400/90 sm:max-w-xl sm:text-[13px] sm:leading-relaxed sm:text-slate-400/85"
+            >
+              Psst—this weekend has a few hidden treats for curious guests: odd taps, patient scrolling,
+              and text worth reading twice.
+            </p>
+          ) : null}
           <p className="mt-12 flex items-center justify-center gap-2 text-sm text-slate-400">
             <span className="inline-block h-px w-8 bg-amber-400/50" aria-hidden />
             <span>Scroll</span>
