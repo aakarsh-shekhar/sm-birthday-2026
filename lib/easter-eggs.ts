@@ -57,8 +57,8 @@ export function easterEggToastLine(key: EasterEggKey): string {
 /** Cryptic hint shown when the guest taps a nearby mystery box (not the toast line). */
 const MYSTERY_HINTS: Record<EasterEggKey, string> = {
   legacy_line:
-    "The giant golden birthday wish is not just for reading—tap it once and watch it celebrate back.",
-  dog_double_tap: "Some smiles answer only when you knock twice, briskly, where the frame meets the glow.",
+    "The giant golden birthday wish is not just for reading ;)",
+  dog_double_tap: "A loyal shadow in the portrait wakes only for a brisk double knock in just the right place.",
   card_down_swipe: "Not every card reads top-to-bottom; one direction is a door the manual never mentions.",
   food_title_triple: "The banner of feasts enjoys an impatient admirer—call on it twice in haste.",
   grocery_sparkles: "The shared larder remembers when you name something that warms a toast more than a pantry.",
@@ -82,6 +82,8 @@ const GROCERY_ALCOHOL_RE = new RegExp(
     String.raw`\sbudweiser?\b`,
     String.raw`\bbeers?\b`,
     String.raw`\bales?\b`,
+    String.raw`\booze?\b`,
+    String.raw`\alcohol?\b`,
     String.raw`\blagers?\b`,
     String.raw`\bipas?\b`,
     String.raw`\bstouts?\b`,
