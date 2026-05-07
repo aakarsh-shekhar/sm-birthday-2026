@@ -85,7 +85,7 @@ const greatVibes = Great_Vibes({
 const QUOTE_DWELL_SECTION_INDEX = 0;
 
 /** Consecutive time on that section while the quote bar is visible (pre-name landing). */
-const QUOTE_DWELL_MS = 4_000;
+const QUOTE_DWELL_MS = 2_000;
 
 /** Full-screen interstitials advance on tap or after this delay (normal flow, not hidden triggers). */
 const FLOW_JUMPSCARE_AUTO_MS = 1800;

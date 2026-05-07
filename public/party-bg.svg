@@ -13,11 +13,16 @@
       <stop stop-color="#F472B6" stop-opacity="0.4"/>
       <stop offset="1" stop-color="#F472B6" stop-opacity="0"/>
     </radialGradient>
+    <pattern id="svPattern" width="220" height="160" patternUnits="userSpaceOnUse">
+      <text x="22" y="72" fill="#FBBF24" fill-opacity="0.12" font-size="48" font-family="Arial, Helvetica, sans-serif" font-weight="700">SV</text>
+      <text x="122" y="142" fill="#FBBF24" fill-opacity="0.1" font-size="42" font-family="Arial, Helvetica, sans-serif" font-weight="700">SV</text>
+    </pattern>
   </defs>
 
   <rect width="1600" height="1200" fill="url(#g1)"/>
   <rect width="1600" height="1200" fill="url(#glow1)"/>
   <rect width="1600" height="1200" fill="url(#glow2)"/>
+  <rect width="1600" height="1200" fill="url(#svPattern)"/>
 
   <g opacity="0.22" fill="#F8FAFC">
     <circle cx="150" cy="980" r="88"/>
