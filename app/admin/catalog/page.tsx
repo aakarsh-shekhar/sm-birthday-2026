@@ -4,6 +4,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { CollapsibleSection } from "@/app/admin/CollapsibleSection";
+import { FloatingMysteryBox } from "@/app/components/FloatingMysteryBox";
 import {
   type ActivityForm,
   type DashboardActivity,
@@ -207,6 +209,7 @@ export default function AdminCatalogPage() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900">
+      <FloatingMysteryBox theme="light" candidateEggs={["admin_detour"]} />
       <div className="mx-auto w-full max-w-6xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -227,17 +230,19 @@ export default function AdminCatalogPage() {
 
         {message ? <p className="mt-4 text-sm font-medium text-sky-800">{message}</p> : null}
 
-        <section className="mt-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-900">Food selections (options)</h2>
+        <CollapsibleSection
+          className="mt-10"
+          title="Food selections (options)"
+          headerActions={
             <button
               type="button"
               onClick={openAddFoodOptionModal}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
               Add food option
             </button>
-          </div>
+          }
+        >
           <div className="mt-3 overflow-x-auto rounded-xl border border-slate-300 bg-white shadow-sm">
             <table className="w-full min-w-[900px] text-left text-sm text-slate-800">
               <thead className="bg-slate-100">
@@ -299,19 +304,21 @@ export default function AdminCatalogPage() {
               </tbody>
             </table>
           </div>
-        </section>
+        </CollapsibleSection>
 
-        <section className="mt-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-900">Activities</h2>
+        <CollapsibleSection
+          className="mt-10"
+          title="Activities"
+          headerActions={
             <button
               type="button"
               onClick={openAddModal}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
             >
               Add activity
             </button>
-          </div>
+          }
+        >
           {loading ? <p className="mt-3 text-sm text-slate-700">Loading…</p> : null}
           <div className="mt-3 overflow-x-auto rounded-xl border border-slate-300 bg-white shadow-sm">
             <table className="w-full min-w-[980px] text-left text-sm text-slate-800">
@@ -386,7 +393,7 @@ export default function AdminCatalogPage() {
               </tbody>
             </table>
           </div>
-        </section>
+        </CollapsibleSection>
 
         {modalOpen ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">

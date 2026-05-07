@@ -54,10 +54,32 @@ export function easterEggToastLine(key: EasterEggKey): string {
   return TOAST_LINES[key];
 }
 
+/** Cryptic hint shown when the guest taps a nearby mystery box (not the toast line). */
+const MYSTERY_HINTS: Record<EasterEggKey, string> = {
+  legacy_line:
+    "The very first whisper of the weekend hides in plain sight—look for the ribbon of words above the golden name.",
+  dog_double_tap: "Some smiles answer only when you knock twice, briskly, where the frame meets the glow.",
+  card_down_swipe: "Not every card reads top-to-bottom; one direction is a door the manual never mentions.",
+  food_title_triple: "The banner of feasts enjoys an impatient admirer—call on it twice in haste.",
+  grocery_sparkles: "The shared larder remembers when you name something that warms a toast more than a pantry.",
+  admin_detour: "Hosts who slip through the side door while still wearing their guest shoes leave a second footprint.",
+  quote_dwell: "The first poem at your feet likes to be watched—linger until the sand runs low.",
+  landing_deep_scroll: "The prelude has a back room; reach the threshold where names are written, and the path notices.",
+  finish_celebration: "The last curtain is not an exit—standing inside it once rings a bell no one else hears.",
+  swipe_halfway: "The crown vote, aimed skyward, carries double weight in the ledger of secrets.",
+};
+
+export function easterEggMysteryHint(key: EasterEggKey): string {
+  return MYSTERY_HINTS[key];
+}
+
 /** Heuristic: grocery free-text names a drink that is typically alcoholic (egg trigger). */
 const GROCERY_ALCOHOL_RE = new RegExp(
   [
     String.raw`\bwines?\b`,
+    String.raw`\ice?\b`,
+    String.raw`\smirnoff?\b`,
+    String.raw`\sbudweiser?\b`,
     String.raw`\bbeers?\b`,
     String.raw`\bales?\b`,
     String.raw`\blagers?\b`,

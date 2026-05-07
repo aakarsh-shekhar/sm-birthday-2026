@@ -15,6 +15,7 @@ import {
 } from "react";
 
 import { EasterEggToast, type EasterEggToastPayload } from "@/app/components/EasterEggToast";
+import { FloatingMysteryBox } from "@/app/components/FloatingMysteryBox";
 import { JumpscareOverlay, type JumpscareVariant } from "@/app/components/JumpscareOverlay";
 import {
   clearSessionParticipantId,
@@ -846,6 +847,10 @@ export default function Home() {
     return (
       <>
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <FloatingMysteryBox
+          theme="dark"
+          candidateEggs={["legacy_line", "dog_double_tap", "quote_dwell", "landing_deep_scroll"]}
+        />
         <main
         onScroll={onLandingScroll}
         className="relative h-screen snap-y snap-mandatory overflow-y-auto bg-slate-950 pb-36 text-slate-100"
@@ -1066,6 +1071,7 @@ export default function Home() {
     return (
       <>
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <FloatingMysteryBox theme="dark" candidateEggs={["finish_celebration", "admin_detour"]} />
         <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-6 text-slate-100">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.18),_transparent_55%)]" />
         <section className="relative z-10 w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-8 text-center shadow-[0_24px_80px_rgba(2,6,23,0.6)] backdrop-blur">
@@ -1137,6 +1143,7 @@ export default function Home() {
     return (
       <>
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <FloatingMysteryBox theme="dark" candidateEggs={["swipe_halfway"]} />
         <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
           <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
             <h2 className={`text-3xl text-amber-300 ${greatVibes.className}`}>Review your picks</h2>
@@ -1194,6 +1201,7 @@ export default function Home() {
     return (
       <>
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <FloatingMysteryBox theme="dark" candidateEggs={["food_title_triple"]} />
         <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
         <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
           <button
@@ -1279,6 +1287,7 @@ export default function Home() {
           autoDismissMs={FLOW_JUMPSCARE_AUTO_MS}
         />
         <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+        <FloatingMysteryBox theme="dark" candidateEggs={["grocery_sparkles"]} />
         <main className="flex min-h-screen items-start justify-center overflow-y-auto bg-slate-950 px-4 py-6 text-slate-100 sm:items-center sm:px-6 sm:py-10">
         <section className="w-full max-w-xl rounded-3xl border border-white/15 bg-slate-900/75 p-5 shadow-xl sm:p-7">
           <p className={`text-4xl text-amber-300 ${greatVibes.className}`}>Grocery List</p>
@@ -1339,6 +1348,7 @@ export default function Home() {
   return (
     <>
       <EasterEggToast toast={eggToast} onDismiss={dismissEggToast} />
+      <FloatingMysteryBox theme="dark" candidateEggs={["card_down_swipe", "swipe_halfway"]} />
     <main
       className="fixed inset-0 flex h-[100dvh] flex-col overflow-hidden bg-slate-950 text-slate-100"
       style={{
@@ -1493,7 +1503,7 @@ export default function Home() {
                     </p>
                   ) : null}
                 </div>
-                <p className="mt-3 text-[11px] text-slate-500">{swipeHint}</p>
+                <p className="mt-3 text-[11px] leading-relaxed text-slate-500">{swipeHint}</p>
               </div>
             </div>
 
