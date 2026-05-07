@@ -6,6 +6,7 @@ import { Great_Vibes } from "next/font/google";
 import {
   FormEvent,
   type PointerEvent,
+  type TouchEvent,
   type UIEvent,
   useCallback,
   useEffect,
@@ -94,7 +95,7 @@ const FLOW_JUMPSCARE_AUTO_MS = 1800;
 const LANDING_SCROLL_QUOTES = [
   "The heart of our crew,\nthe warmest welcome at every door,\nSumeet Mama—this weekend\nis written around you.",
   "A pause for the one we came to celebrate—\nthen we fold laughter, water,\nand every vote into one story.",
-  "Three small steps, then you are in.\nYour picks become the route;\nyour voice ties the bow\non the birthday surprise.",
+  "Three small steps, then you are in.\nYour picks become the route;\nyour voice ties the bow\non the birthday plan.",
   "Almost there. Breathe once,\nadd your name, and jump in—\nyour seat is saved\nwhere the best stories start.",
 ] as const;
 
@@ -624,11 +625,15 @@ export default function Home() {
   function onCardPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (isLoading || !currentActivity) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     beginCardSwipe(event.clientX, event.clientY);
   }
 
   function onCardPointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (swipeStart) {
+      event.preventDefault();
+    }
     updateCardSwipe(event.clientX, event.clientY);
   }
 
@@ -643,6 +648,37 @@ export default function Home() {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    setSwipeStart(null);
+    swipeDeltaRef.current = { x: 0, y: 0 };
+    setTouchDelta({ x: 0, y: 0 });
+    setIsDraggingCard(false);
+  }
+
+  function onCardTouchStart(event: TouchEvent<HTMLDivElement>) {
+    if (isLoading || !currentActivity) return;
+    const touch = event.touches[0];
+    if (!touch) return;
+    event.preventDefault();
+    beginCardSwipe(touch.clientX, touch.clientY);
+  }
+
+  function onCardTouchMove(event: TouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+    if (!touch) return;
+    if (swipeStart) {
+      event.preventDefault();
+    }
+    updateCardSwipe(touch.clientX, touch.clientY);
+  }
+
+  function onCardTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    if (swipeStart) {
+      event.preventDefault();
+    }
+    void endCardSwipe();
+  }
+
+  function onCardTouchCancel() {
     setSwipeStart(null);
     swipeDeltaRef.current = { x: 0, y: 0 };
     setTouchDelta({ x: 0, y: 0 });
@@ -883,13 +919,14 @@ export default function Home() {
     const el = event.currentTarget;
     const viewH = el.clientHeight;
     const st = el.scrollTop;
-    setLandingQuoteVisible(st > 40);
+    const sectionIdx = Math.floor(st / viewH);
+    const hideQuoteOnFinalIntroSection = sectionIdx >= LANDING_SCROLL_QUOTES.length - 1;
+    setLandingQuoteVisible(st > 40 && !hideQuoteOnFinalIntroSection);
     const idx = Math.min(
       LANDING_SCROLL_QUOTES.length - 1,
       Math.max(0, Math.floor(st / viewH)),
     );
     setLandingQuoteIndex(idx);
-    const sectionIdx = Math.floor(st / viewH);
     if (!landingDeepDoneRef.current && sectionIdx >= 3) {
       landingDeepDoneRef.current = true;
       void recordEggFind("landing_deep_scroll");
@@ -966,7 +1003,7 @@ export default function Home() {
               className="mt-4 max-w-lg text-center text-xs leading-snug text-slate-400/90 sm:max-w-xl sm:text-[13px] sm:leading-relaxed sm:text-slate-400/85"
             >
               Psst—this weekend has a few hidden treats for curious guests: odd taps, patient scrolling,
-              and text worth reading twice. There is a leaderboard—let’s see who can find them all—and
+              and text worth reading (tapping) twice. There is a leaderboard—let’s see who can find them all—and
               a little floating hint if you get stuck.
             </p>
           ) : null}
@@ -1120,7 +1157,7 @@ export default function Home() {
                 : "translate-y-2 opacity-0 motion-reduce:translate-y-0"
             }`}
           >
-            <p className="whitespace-pre-line text-sm leading-snug text-slate-100 sm:text-base sm:leading-relaxed">
+            <p className="whitespace-pre-line text-xs leading-snug text-slate-100 sm:text-sm sm:leading-relaxed">
               {LANDING_SCROLL_QUOTES[landingQuoteDisplayIndex]}
             </p>
           </div>
@@ -1471,10 +1508,14 @@ export default function Home() {
               className={`relative flex min-h-0 flex-1 touch-none select-none flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-900 shadow-[0_10px_30px_rgba(2,6,23,0.45)] ${
                 isDraggingCard ? "" : "transition-transform duration-200 ease-out"
               }`}
-              onPointerDown={onCardPointerDown}
-              onPointerMove={onCardPointerMove}
-              onPointerUp={onCardPointerUp}
-              onPointerCancel={onCardPointerCancel}
+              onPointerDownCapture={onCardPointerDown}
+              onPointerMoveCapture={onCardPointerMove}
+              onPointerUpCapture={onCardPointerUp}
+              onPointerCancelCapture={onCardPointerCancel}
+              onTouchStartCapture={onCardTouchStart}
+              onTouchMoveCapture={onCardTouchMove}
+              onTouchEndCapture={onCardTouchEnd}
+              onTouchCancelCapture={onCardTouchCancel}
               style={{
                 transform: `translate(${touchDelta.x * 0.35}px, ${touchDelta.y * 0.24}px) rotate(${touchDelta.x * 0.06}deg)`,
               }}
@@ -1541,7 +1582,7 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-5">
+              <div className="pointer-events-none flex min-h-0 flex-1 flex-col overflow-y-hidden p-4 sm:p-5">
                 <div className="flex flex-wrap items-center gap-2">
                   {currentActivity.category ? (
                     <span className="rounded-full bg-slate-700 px-2.5 py-1 text-xs font-medium text-slate-100">
@@ -1580,7 +1621,7 @@ export default function Home() {
                       href={currentActivity.activityUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex text-sm font-semibold text-amber-300 underline underline-offset-2"
+                      className="pointer-events-auto inline-flex text-sm font-semibold text-amber-300 underline underline-offset-2"
                     >
                       Open official activity page
                     </a>
