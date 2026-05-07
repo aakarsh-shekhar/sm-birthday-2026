@@ -346,4 +346,113 @@ export const seedActivities: SeedActivity[] = [
       "Come and enjoy a wellness or beauty treatment at Arovite in the Market Dome. Experience one of our relaxing massages and the most pleasant treatments for your skin.",
     activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/program/activity/AROVITENB",
   },
+  {
+    title: "Bowling",
+    imageUrl: activityImageUrl("Bowling", "webp"),
+    category: "Sports and Fun",
+    includedInStay: false,
+    description:
+      "Bowling only starts when the balls start to roll and offers a successful combination of sportiness and fun. Try it yourself!",
+    activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/BOWLINGALLEYA",
+  },
+  {
+    title: "Bumper Cars",
+    imageUrl: activityImageUrl("Bumper Cars", "jpg"),
+    category: "Sports and Fun",
+    includedInStay: false,
+    description:
+      "These are not ordinary bumper cars, but round floating bumper cars! Sit behind the wheel and try to escape from the other children. Or go hunting and push other bumper cars to the side!",
+    activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/BUMPERCARSNB",
+  },
+  {
+    title: "Darts",
+    imageUrl: activityImageUrl("Darts", "avif"),
+    category: "Sports and Fun",
+    includedInStay: true,
+    description: "Throw a dart with your group. Come to Bar Bowling.",
+    activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/DARTSNBPMS",
+  },
+  {
+    title: "Family Wall Climbing",
+    imageUrl: activityImageUrl("Family Wall Climbing", "avif"),
+    category: "Sports and Fun",
+    includedInStay: false,
+    description:
+      "An exciting and sporty activity for young and old. Climb a wall 12 meters high: safety is guaranteed and the difficulty level can be adjusted to the participants.",
+    activityUrl:
+      "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/FAMILYCLIMBIN4ROUTES",
+  },
+  {
+    title: "Family Archery",
+    imageUrl: activityImageUrl("Family Archery", "avif"),
+    category: "Sports and Fun",
+    includedInStay: false,
+    description:
+      "The beginning is equally difficult. But those who persever learn to hit the target with bow and arrow during the archery lesson.",
+    activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/ARCHERYFAMILY",
+  },
+  {
+    title: "High Adventure Experience",
+    imageUrl: activityImageUrl("High Adventure Experience", "webp"),
+    category: "Sports and Fun",
+    includedInStay: false,
+    description:
+      "Sportsmen and adventurers, watch out! You experience tension at high altitudes. You walk down a large climbing course, meters above the ground, while being encouraged from below.",
+    activityUrl:
+      "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/HIGHADVENTUREEXPERIENCE",
+  },
+  {
+    title: "Canoe Trip to the Niers",
+    imageUrl: activityImageUrl("Canoe Trip to the Niers", "avif"),
+    category: "Aqua Fun",
+    includedInStay: false,
+    description:
+      "Book our latest activity now and discover the most beautiful canoe trip across the Niers! Get in the canoe and enjoy a beautiful, relaxing trip over the winding Niers! Surrounded by nature, peace and space, you paddle through a unique piece of landscape in about 75 minutes",
+    activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/CANONIERS",
+  },
+  {
+    title: "Live Music and Drinks",
+    imageUrl: activityImageUrl("Live Music and Drinks", "avif"),
+    category: "Entertainment",
+    includedInStay: true,
+    description:
+      "Live music with a drink and a nice snack! And that at the stage in the Market Dome. Do you swing along?",
+    activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/ONEMANBAND",
+  },
+  {
+    title: "Mini Cars Inside",
+    imageUrl: activityImageUrl("Mini Cars Inside", "webp"),
+    category: "Sports and Fun",
+    includedInStay: false,
+    description:
+      "Cycling is good for the kids, but occasionally crossing a few laps on the race track is not crazy either. The electric cars are already ready. Get in and give gas!",
+    activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/MINICARSINT",
+  },
+  {
+    title: "Minigolf",
+    imageUrl: activityImageUrl("Minigolf", "webp"),
+    category: "Sports and Fun",
+    includedInStay: false,
+    description:
+      "In the Action Factory in Het Heijderbos, there is a new Adventure Golf with a jungle jacket. Do you hit the ball in the giant spider web? Or in the mouth of the hippopotamus?",
+    activityUrl:
+      "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/MINIGOLFINTERACTIVEADULT",
+  },
+  {
+    title: "Chess XL",
+    imageUrl: activityImageUrl("Chess XL", "avif"),
+    category: "Sports and Fun",
+    includedInStay: true,
+    description: "A game of chess with your group? Come to the Action Factory. Have fun.",
+    activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/CHESSXLNBPMS",
+  },
+  {
+    title: "Tennis",
+    imageUrl: activityImageUrl("Tennis", "avif"),
+    category: "Sports and Fun",
+    includedInStay: false,
+    description:
+      "Whether you want to play alone or in doubles on the court, our tennis court offers the ideal opportunity for this. Rackets and balls are included.",
+    activityUrl: "https://www.centerparcs.nl/my/nl-nl/booking/8021596/activity/TENNISINDOOR",
+  },
 ];
