@@ -893,7 +893,8 @@ export default function Home() {
               className="mt-4 max-w-lg text-center text-xs leading-snug text-slate-400/90 sm:max-w-xl sm:text-[13px] sm:leading-relaxed sm:text-slate-400/85"
             >
               Psst—this weekend has a few hidden treats for curious guests: odd taps, patient scrolling,
-              and text worth reading twice.
+              and text worth reading twice. There is a leaderboard—let’s see who can find them all—and
+              a little floating hint if you get stuck.
             </p>
           ) : null}
           <p className="mt-12 flex items-center justify-center gap-2 text-sm text-slate-400">
