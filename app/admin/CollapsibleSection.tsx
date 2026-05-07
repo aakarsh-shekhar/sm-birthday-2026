@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 export type CollapsibleSectionProps = {
   id?: string;
@@ -39,8 +39,18 @@ export function CollapsibleSection({
   const bodyClass =
     variant === "amber" ? "bg-transparent px-0 pb-1 pt-0" : "border-t border-slate-100 px-5 pb-5 pt-3";
 
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => {
+    setOpen(defaultOpen);
+  }, [defaultOpen]);
+
   return (
-    <details id={id} defaultOpen={defaultOpen} className={`group ${shell} ${className}`}>
+    <details
+      id={id}
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+      className={`group ${shell} ${className}`}
+    >
       <summary
         className={`flex cursor-pointer list-none items-start justify-between gap-3 px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden ${summaryBar}`}
       >
