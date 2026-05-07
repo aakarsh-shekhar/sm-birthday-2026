@@ -190,6 +190,7 @@ export default function Home() {
   const landingQuoteTargetRef = useRef(landingQuoteIndex);
   landingQuoteTargetRef.current = landingQuoteIndex;
   const [landingWhisperRevealed, setLandingWhisperRevealed] = useState(false);
+  const [birthdayTitleBurst, setBirthdayTitleBurst] = useState(false);
 
   useEffect(() => {
     if (landingQuoteIndex === landingQuoteDisplayIndex) {
@@ -281,6 +282,12 @@ export default function Home() {
       foodTitleTapRef.current.count = 0;
       void recordEggFind("food_title_triple");
     }
+  }
+
+  function onBirthdayTitleClick() {
+    setBirthdayTitleBurst(true);
+    window.setTimeout(() => setBirthdayTitleBurst(false), 950);
+    void recordEggFind("legacy_line");
   }
 
   const total = activities.length;
@@ -910,19 +917,38 @@ export default function Home() {
         }}
       >
         <section className="mx-auto flex min-h-screen w-full max-w-3xl snap-start flex-col items-center justify-center px-6 py-16 text-center">
-          <button
-            type="button"
-            onClick={() => void recordEggFind("legacy_line")}
-            className="text-[11px] font-semibold uppercase tracking-[0.28em] text-amber-200/95"
-          >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-amber-200/95">
             A legacy of celebration
-          </button>
-          <h1 className={`mt-5 text-6xl leading-[1.05] text-amber-300 sm:text-7xl ${greatVibes.className}`}>
-            Happy Birthday Sumeet!
-          </h1>
+          </p>
+          <div className="relative mt-5">
+            <button
+              type="button"
+              onClick={onBirthdayTitleClick}
+              className={`rounded-md px-2 transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-300/70 ${
+                birthdayTitleBurst ? "scale-[1.04]" : "scale-100"
+              }`}
+              aria-label="Happy Birthday Sumeet"
+            >
+              <h1 className={`text-6xl leading-[1.05] text-amber-300 sm:text-7xl ${greatVibes.className}`}>
+                Happy Birthday Sumeet!
+              </h1>
+            </button>
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 text-2xl transition-all duration-500 ${
+                birthdayTitleBurst ? "-translate-y-2 opacity-100" : "translate-y-1 opacity-0"
+              }`}
+            >
+              ✨🎉✨
+            </span>
+          </div>
           <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-slate-200/95 sm:text-lg">
-            A curated trip plan and a shared toast to someone who means the world to this crew.
-            Scroll when you are ready to add your voice to the weekend.
+            It is said that the best celebrations contain a dash of magic and a whole lot of booze ...
+            also let's not forget love and laughter. 
+          </p>
+          <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-slate-200/95 sm:text-lg">
+            Presenting an intensive but fun planner for your birthday weekend.
+            Let's get going!
           </p>
           <button
             type="button"
@@ -955,7 +981,7 @@ export default function Home() {
 
         <section className="mx-auto flex min-h-screen w-full max-w-lg snap-start flex-col items-center justify-center px-6 py-16">
           <p className="mb-8 text-[11px] font-semibold uppercase tracking-[0.26em] text-amber-200/90">
-            Guest of honour
+            In the Spotlight
           </p>
           <div className="relative w-full max-w-[320px]">
             <div className="absolute -inset-4 -z-10 rounded-[1.35rem] bg-gradient-to-br from-amber-500/18 via-transparent to-sky-500/10 blur-2xl" aria-hidden />

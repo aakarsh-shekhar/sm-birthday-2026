@@ -671,6 +671,9 @@ export default function AdminPage() {
             Edit catalog &amp; food →
           </Link>
         </div>
+        <footer className="mt-8 pb-2 text-center text-sm text-slate-500">
+          Built with love by Aakarsh and Riti
+        </footer>
       </div>
     </main>
   );

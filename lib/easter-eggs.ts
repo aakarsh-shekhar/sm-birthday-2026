@@ -15,7 +15,7 @@ export const EASTER_EGG_KEYS = [
 export type EasterEggKey = (typeof EASTER_EGG_KEYS)[number];
 
 const LABELS: Record<EasterEggKey, string> = {
-  legacy_line: "Clicked “A legacy of celebration”",
+  legacy_line: "Clicked “Happy Birthday Sumeet!”",
   dog_double_tap: "Double-tapped the pup (portrait hot spot)",
   card_down_swipe: "Tried a downward swipe on an activity card",
   food_title_triple: "Double-clicked “Food Picks”",
@@ -38,7 +38,7 @@ export function easterEggLabel(key: EasterEggKey): string {
 
 /** Short line shown in the find toast popup. */
 const TOAST_LINES: Record<EasterEggKey, string> = {
-  legacy_line: "The opening line noticed you back.",
+  legacy_line: "Birthday title tapped—confetti energy unlocked.",
   dog_double_tap: "Good eye—say hi to the good dog.",
   card_down_swipe: "Wrong-way swipe, right kind of curiosity.",
   food_title_triple: "Second time’s the charm. Chef’s kiss.",
@@ -57,7 +57,7 @@ export function easterEggToastLine(key: EasterEggKey): string {
 /** Cryptic hint shown when the guest taps a nearby mystery box (not the toast line). */
 const MYSTERY_HINTS: Record<EasterEggKey, string> = {
   legacy_line:
-    "The very first whisper of the weekend hides in plain sight—look for the ribbon of words above the golden name.",
+    "The giant golden birthday wish is not just for reading—tap it once and watch it celebrate back.",
   dog_double_tap: "Some smiles answer only when you knock twice, briskly, where the frame meets the glow.",
   card_down_swipe: "Not every card reads top-to-bottom; one direction is a door the manual never mentions.",
   food_title_triple: "The banner of feasts enjoys an impatient admirer—call on it twice in haste.",
